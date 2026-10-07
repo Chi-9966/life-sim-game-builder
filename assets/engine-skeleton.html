@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>人生模拟骨架 · 北岸日记（演示）</title>
+<!--
+  ============================================================================
+  单文件人生模拟 · 引擎骨架（引擎已去平台化，内容可整体替换为任意题材）
+  ----------------------------------------------------------------------------
+  作者须知（构建各题材游戏时本文件是起点，不是终点）：
+  · 结构：CSS 变量调色板(底部) → THEME SLOT 1~8 数据槽 → 引擎代码（勿随意改动）。
+  · 引擎已内置：时间槽(4/日)/触发器/场景-选项-效果(fx)引擎/关系阶段机/手机社交/地图/
+    经济账本/工作室(职业+外包单)/成就与结局/存档迁移四级瘦身/错误恢复面。
+  · THEME SLOT 内的数据为演示题材（北岸小城日记），格式即是标准。换题材 =
+    全量重写 8 个槽的数据 + 改 CSS 变量 + 更多页正文（见 references/engine-blueprint.md）。
+  · 交付前的刚性底线：单文件、零外部请求、无平台特化物、禁用占位文案。
+  ============================================================================
+-->
+<style>
+/* ===== 兜底调色板：换题材时只改 :root 变量，勿改各具体样式 ===== */
+:root{
+  --accent:#b0592f; --accent2:#d97b45; --accent-hi:#eab060;
+  --bg:#140f0d; --bg2:#1d1613; --panel:#241a15; --panel2:#31231c; --line:#4e382c;
+  --ink:#f3e0d0; --ink-dim:#b99e8c; --ok:#7fbf7f; --warn:#e0a050; --bad:#d15858;
+  --shadow:0 8px 30px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:radial-gradient(1000px 500px at 85% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),var(--bg);
+  color:var(--ink);font-size:15px;line-height:1.7;display:flex;justify-content:center}
+#app{width:100%;max-width:480px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;position:relative}
+#view{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:8px 14px 96px}
+h1,h2,h3,.serif{font-family:"Songti SC","Noto Serif SC",serif;letter-spacing:.5px}
+.datebar{position:relative;padding:8px 14px;background:linear-gradient(180deg,var(--panel2),var(--panel));
+  font-size:13px;color:var(--accent-hi);letter-spacing:1px;border-bottom:1px solid var(--line)}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;margin:0 -14px 10px;
+  padding:12px 14px;background:linear-gradient(180deg,rgba(20,15,13,.97),rgba(20,15,13,.85));
+  backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topbar .back{width:32px;height:32px;border-radius:9px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;flex:none}
+.topbar .title{font-size:16px;font-weight:bold;color:var(--accent-hi)}
+.topbar .sub{font-size:11px;color:var(--ink-dim);margin-left:auto;text-align:right}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:30;
+  display:flex;background:rgba(20,12,10,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+.nav-i{flex:1;text-align:center;font-size:11px;color:var(--ink-dim);cursor:pointer;position:relative;padding:2px 0}
+.nav-i .ico{display:block;font-size:20px;line-height:1.3}
+.nav-i.on{color:var(--accent-hi)}
+.nav-i .dot{position:absolute;top:2px;right:22%;width:8px;height:8px;border-radius:50%;background:var(--accent2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.card.soft{background:linear-gradient(160deg,var(--panel),var(--panel2))}
+.row{display:flex;gap:8px;align-items:center}.row.wrap{flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;padding:10px 14px;
+  font-size:13.5px;cursor:pointer;font-family:inherit}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;font-weight:bold}
+.btn.gold{background:linear-gradient(150deg,var(--accent2),var(--accent-hi));border-color:transparent;color:#241a15;font-weight:bold}
+.btn.danger{border-color:var(--bad);color:var(--bad);background:transparent}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+.btn.block{display:block;width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12px}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;background:var(--panel2);border:1px solid var(--line);color:var(--accent-hi)}
+.sect{font-size:13px;color:var(--accent-hi);letter-spacing:2px;margin:14px 2px 8px;font-weight:bold}
+.notice{padding:10px 12px;border-radius:10px;font-size:12.5px;margin:8px 0}
+.notice.warn{background:rgba(224,160,80,.1);border:1px solid var(--warn);color:var(--warn)}
+.notice.ok{background:rgba(127,191,127,.08);border:1px solid var(--ok);color:var(--ok)}
+.notice.bad{background:rgba(209,88,88,.08);border:1px solid var(--bad);color:#e89090}
+.notice.gold{background:rgba(234,176,96,.08);border:1px solid var(--accent-hi);color:var(--accent-hi)}
+.empty{text-align:center;color:var(--ink-dim);font-size:12.5px;padding:26px 10px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.05)}
+.kv .k{color:var(--ink-dim)}
+.place{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--panel);cursor:pointer}
+.place .ico{font-size:24px;flex:none}
+.choice{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+  border-radius:12px;padding:10px 12px;font-size:13.5px;cursor:pointer;margin-bottom:8px;font-family:inherit}
+.choice .hint{display:block;font-size:11.5px;color:var(--ink-dim);margin-top:3px}
+.choice:active{background:var(--panel)}
+.avatar{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;flex:none}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{flex:1;text-align:center;padding:8px;border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--ink-dim);cursor:pointer;background:var(--panel)}
+.tab.on{color:var(--accent-hi);border-color:var(--accent);background:rgba(176,89,47,.14)}
+.msg-thread{max-height:46vh;overflow-y:auto}
+.msg-row{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;max-width:92%}
+.msg-row.me{flex-direction:row-reverse;margin-left:auto}
+.bubble{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 11px;font-size:13px;max-width:80%;white-space:pre-wrap}
+.msg-row.me .bubble{background:rgba(176,89,47,.25);border-color:var(--accent)}
+.bubble .t{display:block;font-size:10px;color:var(--ink-dim);margin-top:3px}
+.modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62);padding:14px}
+.modal>div{position:relative;width:100%;max-width:480px;max-height:86vh;max-height:86dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:linear-gradient(165deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.modal h3{color:var(--accent-hi);margin-bottom:8px;font-size:17px}
+.modal label.f{display:block;font-size:12.5px;color:var(--accent-hi);margin:12px 0 6px;letter-spacing:1px}
+.modal input[type=text]{width:100%;border:1px solid var(--line);background:var(--bg2);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit}
+.scene-who{font-size:11px;color:var(--ink-dim);letter-spacing:2px;margin-bottom:2px}
+.scene-body{font-size:13.5px;white-space:pre-wrap;margin:6px 0 12px;line-height:1.9}
+.fade-note{text-align:center;font-size:10.5px;color:var(--ink-dim);margin:8px 0;letter-spacing:2px;opacity:.8}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap}
+.opt{border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;background:var(--bg2);color:var(--ink-dim)}
+.opt.on{color:var(--accent-hi);border-color:var(--accent);background:rgba(176,89,47,.15)}
+#toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:100%;max-width:480px}
+.toast{background:rgba(0,0,0,.75);color:#ffe9d0;border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:12.5px;max-width:86%;text-align:center}
+.toast.bad{color:#ffb3b3;border-color:var(--bad)}
+.title-hero{position:relative;text-align:center;padding:46px 8px 24px}
+.title-hero h1{font-size:25px;color:var(--accent-hi);margin:6px 0}
+.title-hero .en{font-size:10px;letter-spacing:6px;color:var(--ink-dim)}
+@media (min-width:600px){ body{padding-top:18px} #view{padding-bottom:110px} .bottom-nav{border-radius:14px 14px 0 0} }
+</style>
+</head>
+<body>
+<div id="app"><div id="view"></div></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* ================= 工具（引擎，勿改） ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const SLOT_NAMES=['早晨','下午','傍晚','夜间'];
+const MONTH_DAYS=[31,28,31,30,31,30,31,31,30,31,30,31];
+const daysInMonth=(y,m)=>{let d=MONTH_DAYS[m-1];if(m===2&&((y%4===0&&y%100!==0)||y%400===0))d=29;return d;};
+const fmtDate=c=>c.y+'年'+c.m+'月'+c.d+'日';
+const fmtCal=c=>c.y+'.'+String(c.m).padStart(2,'0')+'.'+String(c.d).padStart(2,'0');
+const cmpCal=(a,b)=>a.y!==b.y?a.y-b.y:(a.m!==b.m?a.m-b.m:a.d-b.d);
+const dayStamp=c=>c.y*500+c.m*40+c.d;
+function addDays(c,n){const d={...c};d.d+=n;while(d.d>daysInMonth(d.y,d.m)){d.d-=daysInMonth(d.y,d.m);d.m++;if(d.m>12){d.m=1;d.y++;}}return d;}
+function addMonths(c,n){const d={...c};d.m+=n;while(d.m>12){d.m-=12;d.y++;}return d;}
+function monthsBetween(a,b){return (b.y-a.y)*12+(b.m-a.m);}
+let S=null,AGE_OK=false;
+const uid=p=>(p||'x')+'_'+(S?(++S.seq):Date.now());
+function toast(t,bad){const el=document.createElement('div');el.className='toast'+(bad?' bad':'');el.textContent=t;$('#toast').appendChild(el);setTimeout(()=>el.remove(),2400);}
+
+/* ============================================================
+   [SLOT 1] 游戏身份 · 全局元信息（换题材：全改）
+   ============================================================ */
+const GAME_META={
+  id:'demo_northshore',
+  title:'北岸日记',
+  city:'北岸市',
+  version:'v001-demo',
+  tagline:'小城的四季 · 沉浸式人生养成',
+  currency:'¥',
+  slotNames:SLOT_NAMES,
+  startCal:{y:2026,m:9,d:20},
+  /* 页签：[key,icon,名]（第五个“家族/传承”页在需要人生阶段系统的题材再加） */
+  tabs:[['home','🌙','日记'],['people','👥','人物'],['world','🗺️','城市'],['more','⚙️','更多']],
+  features:{intimacy:false,proposal:true,angry:true},
+  skills:{eff:'执行',com:'表达',doc:'整理',aes:'眼光',plan:'规划',risk:'胆识'},
+  xFields:{},                       /* 题材自定义计数器：如 exposure:'风评' —— 引擎的 x fx 会写入 S.chg */
+  milestones:[10,25,40],
+  giftTiers:[{n:'顺手的小心意',p:88,a:2},{n:'用心的一份礼',p:688,a:4},{n:'郑重的礼物',p:1888,a:6}],
+  disclaimer:['本系统基于架空的故事背景，角色与剧情均为虚构。',
+    '适度益脑，沉迷伤身。合理安排时间，享受健康生活。',
+    '游戏内全部人物、事件、场所均为虚构创作，请勿带入现实或模仿。',
+    '最终解释权归作品所有。'],
+  strings:{
+    invite:'「这周找了个时间……想见你。方便吗？」',
+    dateFlavor:'你们挑了个安静的位置，落座，话匣子慢慢打开。'
+  }
+};
+
+/* ============================================================
+   [SLOT 2] 人物阵容 · CAST（主阵容：全量台词） · CAST2（二阵容：轻量）
+   每位成员的字段：id,name,age,job,char(关键词),color(头像渐变),t(偏好代号),
+   wife(可选：婚姻冲突线“对方的既有关系”)；lines 八套台词 + heart 里程碑内线。
+   换题材：整表重写（数量见 theming-guide 体量标准）。
+   ============================================================ */
+const CAST={
+  yan_shu:{id:'yan_shu',name:'颜叔',age:58,job:'渡口面馆老板',char:'烟火气 · 稳当 · 收留深夜',color:'linear-gradient(160deg,#6a3a20,#8a6a3f)',t:'mature',
+    meetHint:'渡口面馆（城市 · 渡口面馆）',
+    lines:{
+      meet:'你推门进来，风铃响了一声。灶台后的人抬头：「外地的？先坐。汤要热的还是更热的？」',
+      chatReply:['面要坨了就别客气，直接开吃。','今天骨头汤熬得久，香。','慢一点，赶时间的话你赶你的，面我留着。'],
+      dateArrive:'他难得收了摊，围裙换成了夹克。左看看右看看：「坐这儿坐这儿，老板说这桌风景最好。我不懂风景，我只懂云吞下几分盐。」',
+      near:'他搓了搓手，忽然有点不好意思：「你们年轻人讲究。我这个岁数的人，只会把你往汤碗多的地方带——暖和。」',
+      night:'夜深了，他收拾碗筷的动作很轻：「这行干久了，最知道人什么时候该吃口热的，什么时候该歇着。」',
+      morning:'清晨的面馆后门开了，蒸汽涌出来：「来得早？头锅汤，最亮的那碗。」',
+      gift:'他推回来一个小布袋：「我不是会收礼的人。但这个我收了——回头汤里给你加个蛋。」',
+      sorry:'「那天灶漏了，关门修到半夜。」他挠了挠头，「没跟你说清楚，是我的错。这碗不收钱。」'},
+    heart:['「你上回说的那件事，我记在心里了。」','「北岸展馆上的消息……我发现，跟你说说话，一天都顺。」','「你看着，明年这个时候，我说的事会成。」'],
+    topics:[
+      {q:'汤为什么这么好喝？',a:'「骨头在下锅前先烤过。」他说，「把狠劲收进去，才熬得出慢的甜。」'},
+      {q:'如果有一天我离开北岸呢？',a:'他擦了擦手：「那就记住这个味儿。想回来的时候，汤一直是热的。」'},
+      {q:'你为什么留在这儿？',a:'「渡口的人来了又走。」他笑了笑，「总得有人看着锅，好让走的人回头看一眼就知道——有人等你。」'}
+    ]},
+  tong_xiao:{id:'tong_xiao',name:'童晓',age:29,job:'社区诊所医生',char:'冷静 · 细致 · 偶尔笨拙',color:'linear-gradient(160deg,#23405a,#3d6a8a)',t:'emotion',
+    meetHint:'社区诊所（城市 · 巡诊日）',
+    lines:{
+      meet:'白大褂的年轻医生从诊室出来，摘下口罩，眼下有熬夜的青色，却先开口：「别紧张，先坐。叫到号我会喊你。」',
+      chatReply:['病历在写。午休回你。','明天上午有门诊。','按时吃饭。这句话我对你也对自己说。'],
+      dateArrive:'她的便装很难认——围脖遮到下巴，「别笑。诊所冷气太足，我落下病了。今天我请客，但我用医保的语气跟你讲：不许点太辣。」',
+      near:'她抬手替你理了理被风吹乱的围巾，动作忽然一停：「抱歉，职业病。见你有点着凉，就……顺手。」',
+      night:'她关灯前把水杯推到你手边：「十一点前睡。这是医嘱，也可以是别的意思。」',
+      morning:'清晨手机亮起，是一张窗台上的绿萝照片：「今天别淋雨。绿萝比我先跟你说早安。」',
+      gift:'她比着礼物愣了几秒，耳朵红了：「……收下了。那我请你打一针——什么针？心动疫苗。行了别笑，快拿走。」',
+      sorry:'「昨夜急诊加了一台。」她的声音哑了，「手机在更衣室。对不起，让你等了那么久。」'},
+    heart:['「你上次说的好消息，我今天写进了值班日志的『今日可贺』栏。」','「有人在等我下班的感觉……原来会让听诊器都变轻。」','「我这个人不擅长运气。但在遇见你这件事上，我把运气全用对了。」'],
+    topics:[
+      {q:'今天忙吗？',a:'「忙。」她说，「被人需要是一种很奇怪的充实——但跟你说完话，这充实里又多了一点甜。」'},
+      {q:'为什么做医生？',a:'「外婆走的时候，社区来了一位年轻医生。」她声音低下去，「那天我就想，以后我也想是那个人。」'},
+      {q:'我心跳有点快，需要看诊吗？',a:'「先量一下。」她一本正经地伸手贴在你手腕上，然后自己先笑了：「……90 次。不是病——是我在旁边。」'}
+    ]}
+};
+const CAST2={
+  zhao_bo:{id:'zhao_bo',name:'赵伯',age:65,job:'江堤旧货摊主',char:'松弛 · 好脾气 · 总有事讲',color:'linear-gradient(160deg,#3a5a3a,#5a7a5a)',meetHint:'江堤公园（城市 · 江堤公园）',
+    lines:{
+      meet:'江堤边的旧货摊后，老丈人抬起脑袋：「姑娘/先生，看看旧物？都是北岸的故事买的账。」',
+      chatReply:['今天收了个旧座钟。','江上风大，早点回。','有空来坐，茶管够。'],
+      dateArrive:'他把折叠桌摆到了江堤最好的位置：「老赵的排场就这些——江风，旧物，一个故事库。你挑一样 financial 听。」',
+      night:'月亮升起来了，他收拾摊子：「做旧货生意的人，最知道什么东西值得留长一点。」',
+      morning:'天刚亮，摊子就支起来了：「早啊。这碗豆浆是隔壁摊买的，我请你。」',
+      gift:'他朝你摆了摆手：「东西是身外物。你肯来，比什么都值钱。」',
+      sorry:'「那天摊上有事，走不开。」他说这话时叹口气，「下次提前说，我把铃铛修一修。」'},
+    heart:['「你常来，我这摊子都值钱了。」','「怎么每次你来，江水都好看些。」','「我这样的老江湖，也愿意给你留个位置——上等仓。」'],
+    topics:[
+      {q:'这个摊子摆了多久？',a:'「二十三年。」他比了个手势，「收过 3000 个故事，卖掉 2900 个。剩下的一百个，等胃口对的人。」'}
+    ]}
+};
+
+/* 台词安全获取（引擎兜底，勿改）：任何成员缺台词都不会崩，用通用兜底 */
+function getCast(id){return CAST[id]||CAST2[id]||null;}
+function mL(mid){
+  const m=getCast(mid),b=(m&&m.lines)||{},nm=(m&&m.name)||'他';
+  return {
+    meet:b.meet||('你们打了个照面。'+nm+'点了点头，算是打过招呼。'),
+    chatReply:b.chatReply||['嗯，我在。','好，都听你的。','刚看到消息——现在就想回你这条。'],
+    dateArrive:b.dateArrive||('他提前到了，看见你眼睛亮了一下：「走吧——今天的时间都是你的。」'),
+    near:b.near||('你们并肩坐着。有些时刻，什么都不说也算数。'),
+    night:b.night||('夜深了，道别时他说：「到家跟我说一声。」'),
+    morning:b.morning||('清晨，他发来一张窗外天色的照片：「早安，今天的风不错。」'),
+    gift:b.gift||('他把礼物收好，不太自然地清了清嗓子：「谢了。这份心意我记着。」'),
+    sorry:b.sorry||('「是我失约。」他没有找借口，「下次我提前安排好。」')
+  };
+}
+function contactName(id){return id==='sys'?'系统日志':(getCast(id)?getCast(id).name:id);}
+function contactColor(id){return id==='sys'?'linear-gradient(160deg,#555,#777)':(getCast(id)?getCast(id).color:'linear-gradient(160deg,#555,#777)');}
+
+/* ============================================================
+   [SLOT 3] 地点 · PLACES（城市地图）+ 事件触发地点 MEET_DEF
+   act 引擎动作键：home(休息) work(上班) meal(吃饭) stroll(散步) shop(购物)
+                 clinic(看病) sound(场地风味)  —— 详见 placeAction
+   MEET_DEF 键 = CAST 成员 id；place = 初遇发生地；cost = 进场花费（0 免费）。
+   初遇场景由引擎按此表自动生成 <key>_meet。
+   ============================================================ */
+const PLACES={
+  home:{name:'出租屋',ico:'🏠',desc:'自己的小窝，可以休息推进到次日',},
+  office:{name:'事务所 · 上班',ico:'💼',desc:'处理工作，消耗精力换工资与口碑'},
+  market:{name:'渡口早市与面馆',ico:'🍜',desc:'烟火气最重的地方',cost:0},
+  park:{name:'江堤公园',ico:'🌳',desc:'散步、看江，免费的平静',cost:0},
+  mall:{name:'北岸商场',ico:'🛍️',desc:'购物补充生活品'},
+  clinic:{name:'社区诊所',ico:'🏥',desc:'看诊、体检，¥120 起',cost:120}
+};
+const MEET_DEF={
+  yan_shu:{contact:'yan_shu',thanks:'——档口前飘来骨汤的热气。',place:'market',cost:28,costDesc:'一碗面',
+    body:'你在渡口面馆落下脚。灶台后的人和你说起了这家店二十年的规矩，汤是热的，话也是。',
+    q:'他把汤碗放到你面前，加了一勺自己熬的辣油。',
+    opts:[{t:'认真道谢，慢慢把汤喝完',v:4},{t:'夸汤好喝，顺便问他北岸的旧事',v:3},{t:'道谢后安静吃饭',v:1}]},
+  tong_xiao:{contact:'tong_xiao',thanks:'——走廊尽头灯有点晃。',place:'clinic',cost:120,costDesc:'诊费',
+    body:'你到社区诊所看诊。白大褂的年轻医生把流程写在纸条上递给你，字迹清瘦，备注栏里多写了一句「多喝水」。',
+    q:'她看你还在发呆，补了一句：“检查结果其实都不要紧，你最近是不是没睡好？”',
+    opts:[{t:'老实承认最近没睡好',v:4},{t:'反过来问她是不是也没睡好',v:3},{t:'礼貌道谢，收好纸条',v:1}]},
+  zhao_bo:{contact:'zhao_bo',thanks:'——旧货摊的收音机咿咿呀呀。',place:'park',cost:0,costDesc:'',
+    body:'江堤上，旧货摊的猫先叫了一声。赵伯放下手里的放大镜：“来，随便看。都是北岸人自己留下来的东西。”',
+    q:'他从摊子底下摸出一把断了柄的红木尺：“这个便宜——你要肯听它的来历，白送。”',
+    opts:[{t:'坐下来听尺子的来历',v:4},{t:'夸摊上的座钟好看',v:3},{t:'点头致意，继续散步',v:1}]}
+};
+
+/* ============================================================
+   [SLOT 4] 经济体系 · ORIGINS / CAREERS / GIGS / GOODS
+   ============================================================ */
+const ORIGINS={
+  local:{name:'本地人家',d:'有人脉有掌声，钱不多 · 现金 ¥18,000',cf:0.9,beauty:55,physique:60,charm:55,wit:62},
+  fresh:{name:'刚下车的青年',d:'一箱行李与胆量 · 现金 ¥12,000',cf:0.6,beauty:56,physique:66,charm:52,wit:58},
+  steady:{name:'安分的文职',d:'工资到点就来，日子刻度清晰 · 现金 ¥24,000',cf:1.2,beauty:58,physique:55,charm:58,wit:66}
+};
+const CAREERS={
+  office:{id:'office',name:'事务所助理',desc:'从打杂到独立跟案：日程、文书、布置、汇报。',
+    levels:['实习助理','正式助理','项目骨干','合伙人之一'],salary:[4200,5600,8600,11600],
+    workDesc:'上班（1 时段）：积累工作日与口碑，达成条件自动升职。'}
+};
+const GIGS={
+  market:[
+    {id:'gm1',name:'早市摊位布置',stages:['和摊主管踩点','设计陈列动线','周末试摆记录'],pay:900,repNeed:0},
+    {id:'gm2',name:'节庆市集企划',stages:['主题与摊位表','联络摊主与物料','开工与现场收尾'],pay:2200,repNeed:6},
+    {id:'gm3',name:'渡口活化年度方案',stages:['踏勘与资料整理','提案与三方协调','年度执行排期'],pay:4200,repNeed:16}
+  ]
+};
+const GOODS={
+  food:[
+    {id:'bun',name:'渡口肉夹馍',price:14,desc:'饱食 +30 · 最省心',use:{satiety:30}},
+    {id:'soup',name:'老火例汤（熟食档）',price:22,desc:'饱食 +40 · 心情 +2',use:{satiety:40,mood:2}}],
+  mall:[
+    {id:'umbrella',name:'结实的好伞',price:89,desc:'背包备用 · 雨天心情 +3',use:{mood:3}},
+    {id:'lamp',name:'床头读书灯',price:169,desc:'夜里读书更省眼 · 执行 +1',use:{skill:'eff:1'}},
+    {id:'tea',name:'提神的毛尖罐',price:58,desc:'用：精力 +10',use:{energy:10}}],
+  health:[
+    {id:'vitamin',name:'复合维生素',price:42,desc:'用：精力 +8 · 体魄 +2',use:{energy:8,phys:2}},
+    {id:'mask',name:'蒸汽眼罩',price:39,desc:'用：精力 +12 · 心情 +3',use:{energy:12,mood:3}}]
+};
+
+/* ============================================================
+   [SLOT 5] 日常事件池 · RANDOM_EVENTS
+   统一格式：{ id, who(分类), title, cond(S)→bool, body, choices:[{t,hint,fx[],next?,custom?}] }
+   换题材：整表重写；建议覆盖主题域的每个系统（工作/身体/经济/人脉/情绪/天气/小确幸…）。
+   ============================================================ */
+const RANDOM_EVENTS=[
+ {id:'ev_morning_rain',who:'天气',title:'一场没安排的雨',cond:S=>S.weather==='大雨'||S.weather==='小雨',
+  body:'你出门时雨点刚落下来。伞在门后挂着，而你手边只有一沓文件。楼道里泛着潮气，楼下的早点摊收了一半。',
+  choices:[
+   {t:'回楼上拿了伞再走',hint:'精力 -4 · 心情 +2',fx:[{k:'energy',v:-4},{k:'mood',v:2}]},
+   {t:'淋着去搭公交',hint:'心情 -2 · 心动 +1',fx:[{k:'mood',v:-2},{k:'aff_rand_met',v:1}]}]},
+ {id:'ev_market_smell',who:'烟火',title:'路过烤炉的香气',cond:S=>S.cal.slot===1,
+  body:'巷口的炉子刚出一炉酥饼。你想起自己还没吃午饭。',
+  choices:[
+   {t:'买两个，一个留给自己',hint:'¥10 · 饱食 +25 · 心情 +4',fx:[{k:'cash',v:-10,reason:'酥饼'},{k:'satiety',v:25},{k:'mood',v:4}]},
+   {t:'捏着眉头过日子',hint:'饱食 -5 · 心情 -3',fx:[{k:'satiety',v:-5},{k:'mood',v:-3}]}]},
+ {id:'ev_opp_review',who:'工作',title:'被当众夸了一句',cond:S=>S.career.job,
+  body:'例会上，你在小项目里的行为细节被公开发了赞扬。你不知道的是：你的名声正在悄悄积累。',
+  choices:[
+   {t:'大方接受，补一句“是团队一起做的”',hint:'口碑 +2 · 魅力 +1',fx:[{k:'rep',v:2},{k:'skill',id:'com',v:1}]},
+   {t:'当众把功劳分给搭档',hint:'口碑 +3 · 心情 -2 · 有点肉痛',fx:[{k:'rep',v:3},{k:'mood',v:-2}]}]},
+ {id:'ev_tired_eye',who:'身体',title:'眼睛又酸又胀',cond:S=>S.player.energy<35,
+  body:'盯着屏幕一整个下午后，眼睛开始抗议。你按着太阳穴想：效率没有，硬撑也无用。',
+  choices:[
+   {t:'起身洗把脸，拉伸五分钟',hint:'精力 +8 · 心情 +2',fx:[{k:'energy',v:8},{k:'mood',v:2}]},
+   {t:'去便利店买杯气泡水',hint:'¥12 · 精力 +12',fx:[{k:'cash',v:-12,reason:'气泡水'},{k:'energy',v:12}]},
+   {t:'继续硬撑',hint:'精力 -6 · 体魄 -1',fx:[{k:'energy',v:-6},{k:'phys',v:-1}]}]},
+ {id:'ev_tidy',who:'居家',title:'收拾出一小袋旧物',cond:S=>true,
+  body:'大扫除时，你从柜子深处翻出一小袋旧物：一条围巾、几封信、一只旧手环。',
+  choices:[
+   {t:'整理好，拍照留档，寄了一封给家人',hint:'心情 +6 · 亲情 +3',fx:[{k:'mood',v:6},{k:'x',id:'kinaff',v:3}]},
+   {t:'全部扔掉，轻装上阵',hint:'心情 +2 · 胆识 +1',fx:[{k:'mood',v:2},{k:'skill',id:'risk',v:1}]},
+   {t:'原样放回，眼不见为净',hint:'心情 -1',fx:[{k:'mood',v:-1}]}]},
+ {id:'ev_cat',who:'小确幸',title:'窗台来了一只猫',cond:S=>S.weather==='晴',
+  body:'一只橘猫踩着窗沿走进来，把你的键盘踩了几下，又原地睡着了。',
+  choices:[
+   {t:'轻手轻脚摸一摸它',hint:'心情 +5 · 精力 +5',fx:[{k:'mood',v:5},{k:'energy',v:5}]},
+   {t:'拍照存档，看看它在偷谁的量',hint:'心情 +3 · 眼光 +1',fx:[{k:'mood',v:3},{k:'skill',id:'aes',v:1}]}]},
+ {id:'ev_opp_tuition',who:'经济',title:'“熟人要便宜点？”',cond:S=>S.player.cash>20000,
+  body:'熟人开口借一笔不大的钱，说得轻描淡写。你的钱包和你的底线同时被摆在桌上。',
+  choices:[
+   {t:'借出去，不提利息',hint:'¥3,000 · 亲情 +2（他念你的好）',fx:[{k:'cash',v:-3000,reason:'帮朋友渡急'},{k:'x',id:'kinaff',v:2}]},
+   {t:'婉拒，请他 decent 想别的办法',hint:'心情 -2 · 胆识 +2',fx:[{k:'mood',v:-2},{k:'skill',id:'risk',v:2}]},
+   {t:'提出对半，各退一步',hint:'¥1,500 · 表达 +1',fx:[{k:'cash',v:-1500,reason:'半份人情'},{k:'skill',id:'com',v:1}]}]},
+ {id:'ev_letter',who:'情绪',title:'一封迟到的信',cond:S=>S.cal.m>=10,
+  body:'信箱里躺着一封搓成团的信，是外婆十年前写的，一直压在旧牙科挂号信下面。',
+  choices:[
+   {t:'在江边找条长凳，慢慢把它读完',hint:'心情 +8 · 亲情 +4 · 定力 +1',fx:[{k:'mood',v:8},{k:'x',id:'kinaff',v:4},{k:'skill',id:'doc',v:1}]},
+   {t:'放到书架上，改天再读',hint:'留一点悬念',fx:[{k:'mood',v:2}]}]},
+ {id:'ev_one_year',who:'里程碑',title:'北岸一周年',cond:S=>cmpCal(S.cal,{y:S.startCal.y+1,m:S.startCal.m,d:S.startCal.d})>=0,
+  body:'日历翻回起点。这一年你搬过工位、熬过夜、认识过人，也丢了些午休。站在渡口的风里，你想给这一切一个落点。',
+  choices:[
+   {t:'去面馆点一碗“周年特供”，和颜叔碰杯汤',hint:'达成结局：在北岸的第一年',fx:[{k:'ending',id:'在北岸的第一年'},{k:'mood',v:10}]},
+   {t:'写一封信给一年前的自己',hint:'心情 +6 · 整理 +2 · 达成结局',fx:[{k:'ending',id:'在北岸的第一年'},{k:'mood',v:6},{k:'skill',id:'doc',v:2}]}]}
+];
+
+/* ============================================================
+   [SLOT 6] 主线剧情 · PLOT_SCENES（每位主线人物 2 幕 + 初遇由 MEET_DEF 生成）
+   键的习惯：人物id_p1 / 人物id_p2；用 next 链接；题材重写。
+   ============================================================ */
+const PLOT_SCENES={
+  yan_shu_p1:{who:'颜叔 · 黄昏',title:'收摊后的两碗汤',
+    body:'晚上十点，你路过面馆，他刚好把最后一张凳子倒扣上。看见你，他又把凳子放下来：「刚要关门。坐下吧，锅还热着。」',
+    choices:[
+      {t:'「那我不该赶时间。」坐下陪他喝完这锅汤',hint:'心动（关系）+3 · 心情 +4',fx:[{k:'aff',id:'yan_shu',v:3},{k:'mood',v:4},{k:'mem',who:'yan_shu',title:'收摊后的汤',text:'他说这锅汤是给「最后一个客人」留的规矩。你说：「那规矩成全了我。」他笑着把汤又添了半勺。'}]},
+      {t:'帮他一起收盘子，边干边聊',hint:'心动 +2 · 精力 -5',fx:[{k:'aff',id:'yan_shu',v:2},{k:'energy',v:-5}]},
+      {t:'「下次再吃，今天不打扰」',hint:'他往你手里塞了个袋子',fx:[{k:'aff',id:'yan_shu',v:1},{k:'item',id:'bun',n:1}]}]},
+  yan_shu_p2:{who:'颜叔 · 心事',title:'渡口的空档',
+    body:'面馆后门，他望着江面发呆。你才想起来，这条渡口明年就要改造，面馆的去留没有着落。',
+    choices:[
+      {t:'「把方案我拿回去看看，或许能保住这栋楼」',hint:'心动 +4 · 沟通判定 ≥35：口碑 +2',fx:[{k:'aff',id:'yan_shu',v:4},{k:'gamble',dc:35,sk:'com',okfx:[{k:'rep',v:2},{k:'mood',v:4}],badfx:[{k:'mood',v:-2}]}]},
+      {t:'「不管大事小事，我陪你慢慢熬」',hint:'心动 +3 · 心情 +2',fx:[{k:'aff',id:'yan_shu',v:3},{k:'mood',v:2},{k:'mem',who:'yan_shu',title:'一起熬',text:'他说：「熬汤的人不怕等。有人陪着熬，就更不怕。」'}]},
+      {t:'不说大话，只是安静坐一会儿',hint:'心动 +2 · 定力 +1',fx:[{k:'aff',id:'yan_shu',v:2},{k:'skill',id:'risk',v:1}]}]},
+  tong_xiao_p1:{who:'童晓 · 深夜',title:'值班室的绿萝',
+    body:'晚上十一点，诊所后楼的灯下，她正在写病历，绿萝的影子落在她手背上。见到你没有意外，只是把你拉进灯下：「来得正好。替我拿一下病历——今天最后一串。」',
+    choices:[
+      {t:'帮她把病历理完，顺便聊会天',hint:'心动 +3 · 整理 +2',fx:[{k:'aff',id:'tong_xiao',v:3},{k:'skill',id:'doc',v:2}]},
+      {t:'「先写完。我坐着等你下班」',hint:'心动 +2 · 心情 +3',fx:[{k:'aff',id:'tong_xiao',v:2},{k:'mood',v:3}]},
+      {t:'不打扰，放下宵夜景就走',hint:'心动 +1 · 精力 -5',fx:[{k:'aff',id:'tong_xiao',v:1},{k:'energy',v:-5},{k:'item',id:'soup',n:1}]}]},
+  tong_xiao_p2:{who:'童晓 · 天台',title:'下夜班的天台',
+    body:'凌晨一点，她发来消息：「你醒着吗。」你赶到诊所天台时，她坐在台阶上，口罩挂在耳边。「今天没能留住一个病人。」她声音很轻，“别说话，就陪我把这杯茶喝完。”',
+    choices:[
+      {t:'什么都不说，坐下来陪她把茶喝完',hint:'心动 +3 · 亲情般的默契',fx:[{k:'aff',id:'tong_xiao',v:3},{k:'mem',who:'tong_xiao',title:'天台的四十分钟',text:'你们一句话没讲。临走她说：“今晚你什么都没说，但比什么指南都管用。”'}]},
+      {t:'从背后轻轻抱住她',hint:'心动 +4 · 心情 -2',fx:[{k:'aff',id:'tong_xiao',v:4},{k:'mood',v:-2}]},
+      {t:'「会难过的医生，才是好医生」',hint:'表达判定 ≥35：心动 +4',fx:[{k:'gamble',dc:35,sk:'com',okfx:[{k:'aff',id:'tong_xiao',v:4},{k:'mood',v:3}],badfx:[{k:'aff',id:'tong_xiao',v:1}]}]}
+    ]
+  }
+};
+
+/* ============================================================
+   以下为引擎（请谨慎修改；修改后必须跑 scripts/qa_lint.mjs + QA）
+   ============================================================ */
+const SCENES={ /* 通用场景注册表：PLOT_SCENES 与初遇工厂会汇入这里 */
+};
+/* 初遇场景工厂 [SLOT 3 派生产物] */
+function buildMeetScenes(){
+  for(const k in MEET_DEF){const d=MEET_DEF[k],m=getCast(k);
+    SCENES[k+'_meet']=()=>({who:m.name+' · 初遇',title:m.job,
+      body:d.body+'\n\n'+d.q,
+      choices:d.opts.map(o=>({t:o.t,hint:'关系 +'+o.v,fx:[{k:'aff',id:k,v:o.v},{k:'stage',id:k,v:'met'}]}))});}
+}
+buildMeetScenes();
+/* PLOT 汇入 */
+for(const k in PLOT_SCENES){SCENES[k]=()=>({who:PLOT_SCENES[k].who,title:PLOT_SCENES[k].title,body:PLOT_SCENES[k].body,choices:PLOT_SCENES[k].choices});}
+
+/* ---------- 状态模型 ---------- */
+function newState(p){
+  return {schemaVersion:1,seq:0,createdAt:Date.now(),
+    cal:{...GAME_META.startCal,slot:0},startCal:{...GAME_META.startCal},
+    player:{name:p.name,age:p.age,look:p.look,style:p.style,origin:p.origin,
+      cash:p.cash,energy:100,mood:70,
+      beauty:clamp(p.beauty,20,95),physique:clamp(p.physique,20,95),
+      charm:clamp(p.charm,20,95),wit:clamp(p.wit,20,95),
+      satiety:70,sickUntil:0,sk:{eff:10,com:10,doc:10,aes:10,plan:10,risk:10},prefType:p.prefType||null},
+    chg:{},weather:'多云',tidbit:'',
+    home:{name:'渡口旁的出租屋',rent:1400,comfort:[]},
+    rel:{},msgs:[],moments:[],mems:[],ledger:[],
+    events:{},pending:[],
+    career:{job:null,level:0,workDays:0,rep:0,project:null,gigs:[]},
+    items:[],health:{symptoms:[],note:''},
+    commitLog:[],endings:[],knows:{},
+    ui:{page:'home',sub:null,thread:null,tab:null},version:1};
+}
+const SAVE_KEY='lifesim_'+GAME_META.id+'_save_v1';
+function trimStorage(){
+  try{
+    if(S.msgs.length>400){const over=S.msgs.length-340;let n=0;
+      for(let i=0;i<S.msgs.length&&n<over;i++){if(S.msgs[i].read){S.msgs.splice(i,1);i--;n++;}}
+      if(n<over&&S.msgs.length)S.msgs.splice(0,over-n);}
+    if(S.ledger.length>240)S.ledger=S.ledger.slice(-180);
+    if(S.mems.length>120)S.mems=S.mems.slice(0,90);
+    if(S.moments.length>24)S.moments=S.moments.slice(0,18);
+  }catch(e){}}
+function save(silent){
+  try{ trimStorage(); localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }
+  catch(e1){
+    try{ localStorage.removeItem(SAVE_KEY+'_hist'); localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }
+    catch(e2){
+      try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }
+      catch(e3){ if(!silent)toast('存储空间不足：建议导出存档后清理浏览器缓存',true); return; } } }
+  try{ localStorage.setItem(SAVE_KEY+'_hist',JSON.stringify([{at:Date.now(),data:JSON.stringify(S)}])); }catch(eh){}
+  if(!silent)toast('已存档');
+}
+function migrateSave(o){
+  if(!o)return o;
+  if(!o.player)o.player={};
+  o.player.sk=o.player.sk||{eff:10,com:10,doc:10,aes:10,plan:10,risk:10};
+  o.chg=o.chg||{};o.items=o.items||[];o.health=o.health||{symptoms:[],note:''};
+  o.commitLog=o.commitLog||[];o.endings=o.endings||[];o.moments=o.moments||[];
+  return o;
+}
+function loadSave(){ try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return null;return migrateSave(JSON.parse(raw));}catch(e){return null;} }
+function exportSave(){ try{ const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=GAME_META.title+'-存档-'+fmtCal(S.cal)+'.json'; a.click(); toast('存档已导出，请妥善保存'); }catch(e){ toast('导出失败：'+e.message,true); } }
+function handleImport(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{ try{ const data=migrateSave(JSON.parse(r.result));
+      localStorage.setItem(SAVE_KEY,JSON.stringify(data));S=data;closeModalAll();render();toast('存档已恢复'); }
+    catch(e){toast('文件无法识别：'+e.message,true);} };
+  r.readAsText(f);
+}
+function importClick(){ const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=handleImport;i.click(); }
+function wipeSave(){ if(!confirm('确定删除存档？此操作不可恢复。请先导出备份。'))return; try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(SAVE_KEY+'_hist');}catch(e){} location.reload(); }
+
+/* ---------- 账本（引擎：所有现金变动唯一入口） ---------- */
+function addCash(amount,reason,cat){
+  S.player.cash+=amount;
+  S.ledger.push({id:uid('led'),date:fmtCal(S.cal),reason,amount,cat:cat||(amount>=0?'收入':'支出')});
+  if(S.player.cash<0){S.player.cash-=amount;S.ledger.pop();return false;}
+  return true;
+}
+function spend(amount,reason,cat){ if(amount===0)return true; if(addCash(-amount,reason,cat)){toast((cat||'支出')+' '+money(-amount));return true;} toast('余额不足：'+reason,true); return false; }
+function income(amount,reason,cat){ addCash(amount,reason,cat); toast('入账 '+money(amount)); }
+function money(n){const v=Number(n)||0;return (v<0?'-':'')+GAME_META.currency+Math.abs(v).toLocaleString('zh-CN');}
+
+/* ---------- 消息 ---------- */
+function pushMsg(fromId,text,kind){
+  try{
+    if(fromId&&fromId!=='sys'&&!getCast(fromId)){fromId='sys';text='['+text+']';}
+  }catch(e){}
+  S.msgs.push({id:uid('msg'),from:fromId,text,slot:S.cal.slot,date:fmtCal(S.cal),kind:kind||'sys',read:false});
+  if(S.msgs.length>520){let over=S.msgs.length-460;
+    for(let i=0;i<S.msgs.length&&over>0;i++){if(S.msgs[i].read){S.msgs.splice(i,1);i--;over--;}}
+    if(over>0)S.msgs.splice(0,over);}
+  if(S.ui.page==='home'||S.ui.thread===fromId)render();
+}
+function unreadCount(){return S.msgs.filter(m=>!m.read).length;}
+function pushMem(who,title,text){S.mems.unshift({id:uid('mem'),who:who||null,title,date:fmtCal(S.cal),text});}
+function fired(id){return !!S.events['f:'+id];}
+function markFired(id){S.events['f:'+id]=1;}
+
+/* ---------- 逃生门与弹窗栈 ---------- */
+let modalStack=[];
+function openModal(html,opts){
+  const ov=document.createElement('div');ov.className='modal';
+  const closeRow=(opts&&opts.lock)?'':'<div style="margin-top:14px"><button class="btn sm ghost" onclick="closeModalTop()">关闭</button></div>';
+  ov.innerHTML='<div>'+(html)+closeRow+'</div>';
+  if(opts&&opts.lock)ov.dataset.lock='1';
+  document.body.appendChild(ov);modalStack.push(ov);
+  if(!opts||opts.clickClose!==false) ov.addEventListener('click',e=>{if(e.target===ov&&!ov.dataset.lock)closeModalTop();});
+  return ov;
+}
+function closeModalTop(){const m=modalStack.pop();if(m)m.remove();}
+function closeModalAll(){while(modalStack.length)closeModalTop();}
+function panicHome(){closeModalAll();if(S){S.ui.page='home';S.ui.sub=null;S.ui.thread=null;try{render();}catch(e){}}toast('已回到首页');}
+
+/* ---------- 关系引擎 ---------- */
+const STAGE_NAME={stranger:'未相识',met:'相识',friends:'朋友',dating:'恋人',secret:'秘密关系',ex:'前任',engaged:'已订婚',married:'已婚（与他）'};
+function getRel(id){
+  if(!S.rel[id])S.rel[id]={stage:'stranger',aff:0,metDate:null,lastDate:null,cooldown:0};
+  const r=S.rel[id];if(!r.cooldown)r.cooldown=0;return r;
+}
+function setStage(id,st){const r=getRel(id);if(r.stage!==st){r.stage=st;
+  if(st==='dating'||st==='secret'){r.metDate=r.metDate||fmtCal(S.cal);
+    if(st==='secret'&&!r.anniv){r.anniv=fmtCal(S.cal);pushMem(id,'纪念日',fmtDate(S.cal)+'，你们确认了这段关系的名字。');}}}}
+function affAdd(id,v){const r=getRel(id);const old=r.aff;
+  if(v>0)v=Math.max(1,Math.round(v*0.5));
+  try{const c=getCast(id);if(v>0&&S.player.prefType&&c&&c.t===S.player.prefType)v=v+1;}catch(e){}
+  r.aff=clamp(r.aff+v,0,100);
+  GAME_META.milestones.forEach((th,i)=>{if(old<th&&r.aff>=th&&!S.events['hl:'+id+':'+i]){S.events['hl:'+id+':'+i]=1;
+    const c=getCast(id);const line=(c&&c.heart&&c.heart[i])||pick(['「最近发生的一些小事，我都想讲给你听。」','「你出现以后，我的日子好像多了一条轨道。」']);
+    pushMsg(id,line);}});
+}
+function isAngry(mid){const r=S.rel[mid];return r&&r.angryUntil&&r.angryUntil>dayStamp(S.cal);}
+function makeAngry(mid,days){const r=getRel(mid);r.angryUntil=dayStamp(S.cal)+days;
+  pushMsg(mid,pick(['「这次的事，我不想再提第二遍。」他声音冷了下来，「给我一点时间。」','「我先缓一缓。不是你的问题——是我需要自己消化。」']));
+  affAdd(mid,-5);S.player.mood=clamp(S.player.mood-8,0,100);
+  toast((getCast(mid)||{name:'他'}).name+'生气了（约'+days+'天后缓和）',true);}
+
+/* ---------- 时间推进（唯一时钟入口） ---------- */
+const REGENERABLE=/^(ev:|gen_invite|sys_pamper|wev:)/;
+function advanceSlots(n,force){
+  let guard=0;
+  while(n-->0&&guard++<500){
+    S.cal.slot++;
+    if(S.cal.slot>3){S.cal.slot=0;S.cal=addDays(S.cal,1);dailySettle();if(S.cal.d===1)monthlySettle();}
+    checkTriggers();
+    if(S.pending.length&&!force)break;
+  }
+  if(force&&S.pending.length){
+    S.pending=S.pending.filter(p=>!REGENERABLE.test(p));
+    if(S.pending.length)toast('快进期间跳过了部分日常小事',true);
+  }
+}
+function nextSlot(){advanceSlots(1);}
+function nextDay(){advanceSlots(4-S.cal.slot,true);}
+function toMonthEnd(){advanceSlots((daysInMonth(S.cal.y,S.cal.m)-S.cal.d)*4+(4-S.cal.slot),true);}
+function nextMonth(){let nn=(S.cal.m===12?S.cal.y+1:S.cal.y),mm=(S.cal.m===12?1:S.cal.m+1);const dd=Math.min(S.cal.d,daysInMonth(nn,mm));
+  advanceSlots((daysInMonth(S.cal.y,S.cal.m)-S.cal.d)*4+(4-S.cal.slot)+(dd-1)*4,true);}
+function energyCap(){return clamp(60+Math.round(S.player.physique*0.4),40,110);}
+function dailySettle(){
+  if(S.cal.m===1&&S.cal.d===1&&!S.events['myage:'+S.cal.y]){S.events['myage:'+S.cal.y]=1;
+    if(typeof S.player.age==='number'){S.player.age++;pushMsg('sys','新的一年到了。你又长了一岁，今年 '+S.player.age+' 岁。');}}
+  const living=Math.round(25+Math.random()*35);
+  addCash(-living,'日常吃穿用度','生活');
+  S.player.satiety=clamp((S.player.satiety==null?70:S.player.satiety)-30,0,100);
+  if(S.player.satiety<20){
+    S.player.mood=clamp(S.player.mood-4,0,100);S.player.physique=clamp(S.player.physique-1,0,100);
+    if(!S.pending.some(p=>p==='sys_eat'))S.pending.push('sys_eat');
+  }
+  S.weather=pick(['晴','多云','小雨','大雨']);
+  S.tidbit=pick(['渡口的风总是比市里先凉。','早市的摊主们在聊今天的客流。','写字楼灯下有加班的背影。','江对岸在放一场看不清的烟花。','上有雨云，柏油路亮起来。']);
+  S.player.mood=clamp(S.player.mood+(S.player.mood<60?1:-1),0,100);
+  for(const id in S.rel){const r=S.rel[id];if(r.cooldown>0)r.cooldown--;}
+  /* 清晨：认识的人 25% 会主动发来日常消息（并进动态流） */
+  if(Math.random()<0.25){
+    const met=Object.keys(CAST).concat(Object.keys(CAST2)).filter(id=>S.rel[id]&&['met','dating','secret','friends','married'].includes(S.rel[id].stage));
+    if(met.length){const id=pick(met);const line=pick(mL(id).chatReply);
+      pushMsg(id,line);S.moments.unshift({id:uid('mo'),who:id,text:line,date:fmtCal(S.cal),liked:false,commented:false});
+      if(S.moments.length>24)S.moments.pop();}
+  }
+  THEME_HOOKS.daily&&THEME_HOOKS.daily();
+}
+function monthlySettle(){
+  const y=S.cal.y,m=S.cal.m;
+  if(S.career.job){const c=CAREERS[S.career.job];if(c&&c.salary&&c.salary[S.career.level]){
+    const s=c.salary[S.career.level];addCash(s,'工资（'+c.levels[S.career.level]+'）','工资');}}
+  addCash(-S.home.rent,S.home.name+'月租','房租');
+  THEME_HOOKS.monthly&&THEME_HOOKS.monthly();
+}
+function monthLedger(y,m){let inc=0,exp=0;S.ledger.forEach(e=>{
+  if(e.date===y+'.'+String(m).padStart(2,'0')+'.'+String(e.date.split('.')[2]||'1')){/*noop*/}
+  if(e.date.startsWith(y+'.'+String(m).padStart(2,'0')))e.amount>0?inc+=e.amount:(exp-=e.amount);});
+  return {inc,exp};}
+
+/* ---------- 主题扩展钩子（换题材时在 THEME SLOTS 附近覆写内容） ---------- */
+const THEME_HOOKS={daily:null,monthly:null,customTriggers:[]};
+function checkTriggers(){
+  /* 引擎通用触发器 */
+  if(S.cal.slot===1&&Math.random()<0.62&&!S.pending.length){
+    const pool=RANDOM_EVENTS.filter(e=>(!e.cond||e.cond(S))&&!(S.events['cd:'+e.id]>dayStamp(S.cal)));
+    if(pool.length){const emo=pool.filter(e=>['里程碑','情绪','烟火','工作'].includes(e.who));
+      const e=(emo.length&&Math.random()<0.5)?pick(emo):pick(pool);
+      S.events['cd:'+e.id]=dayStamp(S.cal)+12;S.pending.push('ev:'+e.id);}}
+  /* 主动邀约：恋人/秘密且无冷却，清晨 10% */
+  if(S.cal.slot===0&&Math.random()<0.10){
+    const cands=Object.keys(CAST).concat(Object.keys(CAST2)).filter(id=>S.rel[id]&&(S.rel[id].stage==='dating'||S.rel[id].stage==='secret')&&S.rel[id].cooldown<=0&&!S.pending.some(p=>String(p).indexOf('gen_invite')===0));
+    if(cands.length)S.pending.push('gen_invite:'+pick(cands));}
+  /* 婚姻线离婚触发（有-wife 成员题材用） */
+  if(S.cal.slot===0&&!S.pending.length){
+    for(const did in S.rel){const rr=S.rel[did],dm=getCast(did);
+      if(!dm||!dm.wife)continue;
+      if((rr.stage==='dating'||rr.stage==='secret')&&rr.aff>=82&&!fired('dv:'+did)&&rr.cooldown<=0){
+        S.pending.push('sys_divorce:'+did);markFired('dv:'+did);break;}}}
+  /* 求婚触发 */
+  if(S.cal.slot===0&&!S.pending.length&&GAME_META.features.proposal){
+    for(const did in S.rel){const rr=S.rel[did],dm=getCast(did);
+      if(!dm)continue;
+      if((rr.stage==='dating'||rr.stage==='secret')&&rr.aff>=88&&!fired('pp:'+did)&&rr.cooldown<=0&&(!dm.wife||dm.divorcedForYou)){
+        S.pending.push('sys_propose:'+did);markFired('pp:'+did);break;}}}
+  /* 高好感糖（宠溺） */
+  if(S.cal.slot===1&&Math.random()<0.12){
+    const sweet=Object.keys(CAST).concat(Object.keys(CAST2)).filter(id=>S.rel[id]&&['dating','secret','engaged','married'].includes(S.rel[id].stage)&&S.rel[id].aff>=70);
+    if(sweet.length)S.pending.push('sys_pamper:'+pick(sweet));}
+  /* 冷淡太久的小冲突 */
+  if(S.cal.slot===2){
+    for(const cid in S.rel){const rr=S.rel[cid],cm=getCast(cid);
+      if(!cm||!GAME_META.features.angry)continue;
+      if(['dating','secret'].includes(rr.stage)&&rr.lastDate&&cmpCal(parseCal(rr.lastDate),S.cal)<=-14&&!isAngry(cid)&&Math.random()<0.15){
+        S.pending.push('sys_conflict:'+cid);break;}}}
+  /* 题材自定义触发器（THEME 提供，签名：(S)=>void，只允许 pushMsg/pending） */
+  if(THEME_HOOKS.customTriggers&&THEME_HOOKS.customTriggers.length){
+    for(const f of THEME_HOOKS.customTriggers){try{f(S);}catch(e){}}}
+}
+function parseCal(t){const p=String(t).split('.').map(Number);return {y:p[0],m:p[1],d:p[2]};}
+
+/* ---------- 效果词表（fx DSL） ---------- */
+function applyFx(fx){
+  (fx||[]).forEach(f=>{switch(f.k){
+    case 'aff':affAdd(f.id,f.v);break;
+    case 'aff_rand_met':{const cds=Object.keys(CAST).concat(Object.keys(CAST2)).filter(x=>S.rel[x]&&['met','dating','secret','friends'].includes(S.rel[x].stage));if(cds.length)affAdd(pick(cds),f.v);break;}
+    case 'stage':setStage(f.id,f.v);break;
+    case 'cash':f.v>=0?income(f.v,f.reason||'收入'):spend(-f.v,f.reason||'支出');break;
+    case 'slot':if(f.n)advanceSlots(f.n);break;
+    case 'msg':{let mf=f.from;if(mf==='__rand'){const cds=Object.keys(CAST).concat(Object.keys(CAST2)).filter(x=>S.rel[x]&&S.rel[x].stage!=='stranger');mf=cds.length?pick(cds):'sys';}pushMsg(mf,f.text);break;}
+    case 'mem':pushMem(f.who,f.title,f.text);break;
+    case 'mem_x':pushMem(null,f.title,f.text);break;
+    case 'relcool':getRel(f.id).cooldown=f.v;break;
+    case 'energy':S.player.energy=clamp(S.player.energy+f.v,0,energyCap());break;
+    case 'mood':S.player.mood=clamp(S.player.mood+f.v,0,100);break;
+    case 'rep':S.career.rep=Math.max(0,(S.career.rep||0)+f.v);break;
+    case 'skill':{const p=f.id.split(':');S.player.sk[p[0]]=clamp((S.player.sk[p[0]]||0)+(p[1]?+p[1]:f.v),0,100);break;}
+    case 'item':addItem(f.id,f.n||1);break;
+    case 'flag':S.events['c:'+f.kk]=f.v;break;
+    case 'phys':S.player.physique=clamp(S.player.physique+f.v,0,100);break;
+    case 'satiety':S.player.satiety=clamp((S.player.satiety==null?70:S.player.satiety)+f.v,0,100);break;
+    case 'beauty':S.player.beauty=clamp(S.player.beauty+f.v,0,100);break;
+    case 'x':if(S.chg[f.id]==null)S.chg[f.id]=(f.v||0);else S.chg[f.id]=(S.chg[f.id]||0)+f.v;break;
+    case 'ending':if(!S.endings.includes(f.id)){S.endings.push(f.id);toast('达成结局：'+f.id);}break;
+    case 'gamble':{const dc=(f.dc||30),sk=(S.player.sk[f.sk||'risk']||0)+((S.player.charm||50)-30)*0.1;
+      if(sk>=dc){(f.okfx||[]).forEach(x=>applyFx([x]));toast('这一次，你处理得漂亮');}
+      else{(f.badfx||[]).forEach(x=>applyFx([x]));toast('这一次没处理好……',true);}break;}
+  }});
+  save(true);
+}
+
+/* ---------- 场景/选项引擎 ---------- */
+function getGiftItem(){/* 占位：礼物走 openGift */}
+function itemIdName(id,cat){const all=Object.keys(GOODS).map(k=>GOODS[k]).flat().find(g=>g.id===id);return all?all.name:id;}
+function addItem(id,n){const it=S.items.find(i=>i.id===id);
+  if(it)it.qty+=n;else{const met=Object.keys(GOODS).map(k=>GOODS[k]).flat().find(g=>g.id===id);
+    S.items.push({id,name:met?met.name:id,qty:n});}}
+function showScene(id,ctx){
+  let sc=null;
+  const mid=id.split(':');
+  if(id==='@consent'){processPending();return;}
+  else if(mid[0]==='gen_invite'){const c=getCast(mid[1]);
+    sc={who:c?c.name+' · 邀约':'邀约',title:'他说想见你',
+      body:(c&&c.invite)?c.invite:GAME_META.strings.invite,
+      choices:[
+       {t:'答应，今晚赴约',hint:'私会 → 约会之夜',fx:[{k:'relcool',id:mid[1],v:0}],next:'gen_date:'+mid[1]},
+       {t:'「这周不太方便，下次我约你」',hint:'关系 +1 · 他会等',fx:[{k:'aff',id:mid[1],v:1},{k:'msg',from:mid[1],text:'好。下次换我提前问。'}]},
+       {t:'先不理他',hint:'关系 -1',fx:[{k:'aff',id:mid[1],v:-1}]}]};}
+  else if(mid[0]==='gen_date'){const c=getCast(mid[1]);
+    sc={who:c?c.name+' · 私会':'私会',title:'约会之夜',
+      body:mL(mid[1]).dateArrive+'\n\n'+GAME_META.strings.dateFlavor,
+      choices:[
+       {t:'把心里话说给他听',hint:'心动 +3 · 心情 +4',fx:[{k:'aff',id:mid[1],v:3},{k:'mood',v:4},{k:'slot',n:1},{k:'mem',who:mid[1],title:'约会',text:'你们聊到很晚。临别时没有人舍得先走。'}]},
+       {t:'聊彼此的工作与近况',hint:'心动 +2 · 表达 +1',fx:[{k:'aff',id:mid[1],v:2},{k:'skill',id:'com',v:1},{k:'slot',n:1}]},
+       {t:'安安静静散个步，走完这条街',hint:'温和的夜晚 · 心动 +1',fx:[{k:'aff',id:mid[1],v:1},{k:'slot',n:1}]},
+       {t:'时间不早，送他/她回家',hint:'心动 +1',fx:[{k:'aff',id:mid[1],v:1},{k:'slot',n:1}]}]};}
+  else if(mid[0]==='sys_pamper'){const c=getCast(mid[1]);
+    sc={who:(c?c.name:'他')+' · 心意',title:'忽然的糖',
+      body:'一阵清脆的提示音。'+(c?c.name:'他')+'发来一条消息：'+pick((c&&c.pamperLines)||['「想到了你。就这么直接说了出来。」','「今天路过你提过的那家店。买了两份，一份是你。」']),
+      choices:[{t:'收下这份心意',hint:'心动 +1 · 心情 +2',fx:[{k:'aff',id:mid[1],v:1},{k:'mood',v:2}]}]};}
+  else if(mid[0]==='sys_divorce'){const c=getCast(mid[1]);
+    S._dvMid=mid[1];
+    sc={who:c.name,title:'一条无预告的消息',
+      body:'深夜，'+c.name+'发来一条很长很长的消息：「他家里的事，他打算做一个了结。这可能需要时间——也需要你的确信。」',
+      choices:[
+       {t:'「我等着。别委屈自己」',hint:'不催促 · 走稳路',fx:[{k:'msg',from:mid[1],text:'好。都弄完我来告诉你。'},{k:'mem',who:mid[1],title:'了一种了结',text:'这一天起，有些事开始向前滚动了。'}],custom:'divorce_wait'},
+       {t:'先不掺和他家的事',hint:'关闭，之后再说',fx:[{k:'aff',id:mid[1],v:-2}],next:'close'}]};}
+  else if(mid[0]==='sys_propose'){const c=getCast(mid[1]);
+    S._ppMid=mid[1];
+    sc={who:c.name,title:'一枚戒指',
+      body:'没有过多的排场。只有他、一枚素圈戒指，和一句练习过很多遍的话：\n「我这样的人，本来对婚姻存疑。遇见你之后，我改了主意。」\n「嫁给我。往后的每一天，都给你确定的答案。」',
+      choices:[
+       {t:'「我愿意」',hint:'走向婚姻',custom:'propose_yes'},
+       {t:'「让我再想想」',hint:'他愿意等 · 心动 +2',fx:[{k:'aff',id:mid[1],v:2}],custom:'propose_wait'},
+       {t:'先不回应',hint:'不影响关系',fx:[{k:'aff',id:mid[1],v:1}],next:'close'}]};}
+  else if(mid[0]==='sys_conflict'){const c=getCast(mid[1]);
+    sc={who:c.name,title:'不出声的裂缝',
+      body:'約定的时间过了很久。你意识到，他有一阵子没有主动出现过。有些关系就是这样发生裂缝的：不是因为争吵，是因为沉默。',
+      choices:[
+       {t:'发一条完整的消息，问他近况',hint:'正视 · 心动 +2 · 说明心意',fx:[{k:'aff',id:mid[1],v:2},{k:'msg',from:mid[1],text:mL(mid[1]).sorry}]},
+       {t:'等他先开口',hint:'冷淡 · 考验他自己',fx:[{k:'aff',id:mid[1],v:-1}]}]};}
+  else if(SCENES[id])sc=(typeof SCENES[id]==='function')?SCENES[id](ctx):SCENES[id];
+  if(!sc){processPending();return;}
+  S._curScene=id;
+  const ov=openModal('<div class="scene-who">'+esc(sc.who||'')+'</div><h3>'+esc(sc.title||'')+'</h3>'+
+    '<div class="scene-body">'+esc(sc.body||'')+'</div><div id="scene-choices"></div>',{lock:true});
+  const box=ov.querySelector('#scene-choices');
+  (sc.choices||[]).forEach(c=>{
+    if(c.cond&&!c.cond())return;
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML=esc(c.t)+(c.hint?'<span class="hint">'+esc(c.hint)+'</span>':'');
+    b.onclick=()=>doChoice(c,id);
+    box.appendChild(b);});
+}
+const CUSTOM_CHOICE={
+  divorce_wait:()=>{const mid=S._dvMid;if(!mid)return;
+    if(Math.random()<0.35){const c=getCast(mid);c.divorcedForYou=1;const exWife=c.wife;c.wife=null;c.divorcedFrom=exWife;
+      affAdd(mid,6);pushMem(mid,'了的了结',fmtDate(S.cal)+'，'+c.name+'结束了'+(exWife||'那段')+'婚姻。');
+      pushMsg(mid,'「都办完了。房子归她，我不争。我只想……以后接你下班的时候，不用绕路。」');
+      toast(c.name+'了结了过去，现在是自由的');}
+    else{S.events['dv_fail:'+mid]=dayStamp(S.cal);getRel(mid).cooldown=30;
+      pushMsg(mid,'「财产分割比想象中难。但我在推进。别对别人说，等我。」');toast('他在处理这件事……还需要时间',true);}
+    S._dvMid=null;closeModalTop();processPending();},
+  propose_yes:()=>{const mid=S._ppMid;if(!mid)return;
+    Object.keys(S.rel||{}).forEach(ok=>{if(ok!==mid&&S.rel[ok].stage==='married'){S.rel[ok].stage='ex';}});
+    setStage(mid,'married');getRel(mid).marriedAt=fmtCal(S.cal);
+    const fund=150000;addCash(fund,'婚后共同资产（'+(getCast(mid)||{name:'他'}).name+'上交的存款）','婚姻');
+    pushMem(mid,'婚礼',fmtDate(S.cal)+(getCast(mid)?'，'+getCast(mid).name:'')+'的婚礼。交换戒指时，他的手一直在抖。');
+    toast('你们结婚了 💍');S._ppMid=null;closeModalTop();processPending();},
+  propose_wait:()=>{delete S.events['f:pp:'+(S._ppMid||'')];S._ppMid=null;closeModalTop();processPending();}
+};
+function processPending(){
+  closeModalTop();
+  if(S.pending.length){const nx=S.pending.shift();showScene(nx);save(true);}
+  else render();
+}
+function doChoice(c,sceneId){
+  if(c.fx)applyFx(c.fx);
+  if(c.custom){const fn=CUSTOM_CHOICE[c.custom];if(fn){fn();return;}}
+  if(c.next==='@consent'){setSceneAndProcess('@consent');return;}
+  if(c.next){closeModalTop();if(S.pending.length&&S.pending[0]===sceneId)S.pending.shift();
+    if(c.next==='close'){processOrRender();}else showScene(c.next);
+    return;}
+  processOrRender();
+}
+function setSceneAndProcess(id){closeModalTop();if(S.pending.length&&S.pending[0]===S._curScene)S.pending.shift();showScene(id);}
+function processOrRender(){closeModalTop();if(S.pending.length)processPending();else{render();}}
+function parseFx(){/* helper only */}
+
+/* ---------- 身体警报事件 ---------- */
+SCENES['sys_eat']=()=>({who:'身体',title:'胃在贴通告',
+  body:'饱食见了底，胃隐隐作痛，心情也跟着往下掉——再不吃点东西，什么都做不动。',
+  choices:[
+   {t:'点一份外卖',hint:'¥32 · 饱食 +40 · 心情 +2',fx:[{k:'cash',v:-32,reason:'外卖'},{k:'satiety',v:40},{k:'mood',v:2}]},
+   {t:'自己下碗面',hint:'¥8 · 饱食 +30 · 精力 -5 · 有烟火气',fx:[{k:'cash',v:-8,reason:'买菜'},{k:'satiety',v:30},{k:'energy',v:-5},{k:'mood',v:3}]},
+   {t:'再忍忍',hint:'心情 -3',fx:[{k:'mood',v:-3}]}]
+});
+
+/* ---------- 街面动作引擎 ---------- */
+function placeAction(pk){
+  const acts={home:['rest'],office:['work'],market:['meal','seeMarket'],park:['stroll'],mall:['shopMall'],clinic:['seeDoctor','seeCheckup']};
+  const list=acts[pk]||[];
+  const place=PLACES[pk]||{};
+  let html='<div class="scene-who">城市 · '+esc(place.name||pk)+'</div><h3>'+esc(place.ico||'')+' '+esc(place.name||pk)+'</h3>'+
+   '<div class="scene-body">'+esc(place.desc||'')+'</div><div id="place-acts"></div>';
+  const ov=openModal(html,{});
+  if(place.cost&&!S.events['paid:'+pk+':'+fmtCal(S.cal)]){spend(place.cost,place.name,'消费');S.events['paid:'+pk+':'+fmtCal(S.cal)]=1;}
+  const box=ov.querySelector('#place-acts');
+  if(list.includes('rest')){
+    const b1=document.createElement('button');b1.className='choice';
+    b1.innerHTML='休息 · 睡到次日早晨<span class="hint">推进一天 · 精力回满</span>';
+    b1.onclick=()=>{closeModalTop();sleepDay();};box.appendChild(b1);}
+  if(list.includes('work')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='处理工作（1 时段）<span class="hint">精力 -15 · 口碑 +1</span>';
+    b.onclick=()=>{closeModalTop();doWork();};box.appendChild(b);
+    const b2=document.createElement('button');b2.className='choice';
+    b2.innerHTML='接外包/项目（工作台）';
+    b2.onclick=()=>{closeModalTop();nav('work');};box.appendChild(b2);}
+  if(list.includes('meal')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='吃一碗热汤（1 时段）<span class="hint">'+money(28)+' · 饱食 +45 · 心情 +3</span>';
+    b.onclick=()=>{closeModalTop();if(spend(28,'热汤一顿','伙食')){applyFx([{k:'satiety',v:45},{k:'mood',v:3},{k:'slot',n:1}]);}};box.appendChild(b);}
+  if(list.includes('seeMarket')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='在早市逛逛（1 时段）<span class="hint">碰运气：可能遇见老面孔</span>';
+    b.onclick=()=>{closeModalTop();tryMeet('market');applyFx([{k:'slot',n:1}]);};box.appendChild(b);}
+  if(list.includes('stroll')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='沿江散步（1 时段）<span class="hint">心情 +5 · 精力 +4</span>';
+    b.onclick=()=>{closeModalTop();tryMeet('park');applyFx([{k:'mood',v:5},{k:'energy',v:4},{k:'slot',n:1}]);};box.appendChild(b);}
+  if(list.includes('shopMall')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='进去购物';
+    b.onclick=()=>{closeModalTop();nav('shop');};box.appendChild(b);}
+  if(list.includes('seeDoctor')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='问诊（1 时段）<span class="hint">'+money(120)+' · 处理身体警报</span>';
+    b.onclick=()=>{closeModalTop();seeDoctor('visit');};box.appendChild(b);}
+  if(list.includes('seeCheckup')){
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML='全面体检（1 时段）<span class="hint">'+money(300)+' · 体魄 +2 · 心情 +1</span>';
+    b.onclick=()=>{closeModalTop();seeDoctor('checkup');};box.appendChild(b);}
+  /* 随行遇见 */
+  if(['market','clinic','park'].includes(pk)){const b=document.createElement('button');b.className='choice';
+    b.innerHTML='顺便留意遇见谁<span class="hint">45% 概率遇见该地的新面孔</span>';
+    b.onclick=()=>{closeModalTop();tryMeet(pk);};box.appendChild(b);}
+  const back=document.createElement('button');back.className='btn sm ghost block';back.textContent='离开';
+  back.onclick=()=>closeModalTop();box.appendChild(back);
+}
+function tryMeet(placeKey){
+  const cand=Object.keys(MEET_DEF).filter(k=>MEET_DEF[k].place===placeKey&&(!S.rel[k]||S.rel[k].stage==='stranger')&&!fired('mt:'+k));
+  if(!cand.length){toast('这里暂时没有新面孔');return;}
+  if(Math.random()<0.45){const k=pick(cand);markFired('mt:'+k);
+    if(PLACES[placeKey].cost&&!(S.events['mt_paid:'+placeKey]&&S.events['mt_paid:'+placeKey]===fmtCal(S.cal))){}
+    S.pending.push(k+'_meet');processOrRenderOnSlot();
+  } else toast('没有遇到特别的人');
+}
+function processOrRenderOnSlot(){if(S.pending.length){processPending();}else render();}
+function sleepDay(){advanceSlots(4-S.cal.slot);S.player.energy=energyCap();save(true);render();}
+function seeDoctor(kind){
+  const cost=kind==='checkup'?300:120;
+  if(!spend(cost,kind==='checkup'?'全面体检':'问诊','健康'))return;
+  applyFx([{k:'slot',n:1},{k:'phys',v:kind==='checkup'?2:1},{k:'mood',v:1}]);
+  if(kind==='visit'){S.player.energy=clamp(S.player.energy+15,0,energyCap());toast('身体警报解除，开了些补养品');}
+  if(S.cal.slot>=2&&(S.player.physique<40))pushMsg('sys','医生叮嘱：最近要睡够、别硬撑。小病硬拖会变大病。');
+  render();
+}
+
+/* ---------- 工作引擎 ---------- */
+const WORK_EVENTS=[
+  {id:'wev_paperwork',t:'加班的一摞材料',body:'临近下班，桌上又出現一摞材料。你的取舍会写进这一天的口碑里。',
+   opts:[{t:'连夜自己赶完',hint:'精力 -18 · 口碑 +2 · 整理 +1',fx:[{k:'energy',v:-18},{k:'rep',v:2},{k:'skill',id:'doc',v:1}]},
+         {t:'求助同事一起分',hint:'精力 -8 · 口碑 +1 · 表达 +1',fx:[{k:'energy',v:-8},{k:'rep',v:1},{k:'skill',id:'com',v:1}]}]},
+  {id:'wev_tea',t:'脉动的一个新问题',body:'领导临时提了一个不属于你业务的问题，所有人都在等你的说法。',
+   opts:[{t:'“我下午答复您”',hint:'口碑 +1 · 规划 +2',fx:[{k:'rep',v:1},{k:'skill',id:'plan',v:2}]},
+         {t:'当场尽所能答好',hint:'胆识判定 ≥30：口碑 +2；否则口碑 -1',fx:[{k:'gamble',dc:30,sk:'risk',okfx:[{k:'rep',v:2}],badfx:[{k:'rep',v:-1},{k:'mood',v:-3}]}]}]}
+];
+function doWork(){
+  if(S.player.energy<15){toast('精力不足',true);return;}
+  S.career.workDays++;applyFx([{k:'energy',v:-15}]);
+  let fx=[{k:'rep',v:1},{k:'slot',n:1}];
+  if(Math.random()<0.35&&WORK_EVENTS.length){const w=pick(WORK_EVENTS);S.pending.push('wev:'+w.id);}
+  checkPromotion();
+  processOrRenderOnSlot();applyFx(fx);
+}
+SCENES['wev_show']=null; /* 工作事件由 wev:<id> 场景读取 WORK_EVENTS */
+SCENES['wev:paperwork']=null;
+function showWorkEvent(id){
+  const w=WORK_EVENTS.find(x=>x.id===id)||WORK_EVENTS[0];
+  return {who:'职场',title:w.t,body:w.body,choices:w.opts.map(o=>({t:o.t,hint:o.hint,fx:o.fx}))};
+}
+/* wev: 场景由 processPending 的前缀逻辑解析（showScene 内 wev: 前缀相互调用） */
+function checkPromotion(){
+  if(!S.career.job)return;const c=CAREERS[S.career.job];if(!c)return;
+  const nl=S.career.level+1;
+  if(nl<c.levels.length){
+    const need=Math.ceil((nl+1)*8);
+    if(S.career.rep>=need){
+      S.career.level=nl;toast('升职！现在是「'+c.levels[nl]+'」');pushMem(null,'升职',fmtDate(S.cal)+'，你升到了「'+c.levels[nl]+'」。钱不是全部，但增长看得见是好事。');}}
+}
+/* 外包/项目台 */
+function takeGig(id){
+  const gg=(GIGS[S.career.job]||GIGS.market||[]).find(g=>g.id===id);if(!gg)return;
+  if(S.career.rep<gg.repNeed){toast('口碑不足（需 '+gg.repNeed+'）',true);return;}
+  S.career.project={id:gg.id,label:gg.name,stages:gg.stages,step:0,quality:0,pay:gg.pay,repo:'gig'};
+  closeModalAll();toast('已接单：'+gg.name);render();
+}
+function stageChoiceModal(){
+  const p=S.career.project;if(!p){toast('先接一单',true);return;}
+  const stepIdx=p.step;
+  const stage=p.stages[stepIdx];
+  const opts=[
+    {t:'【稳妥做法】慢慢来，保住底子',hint:'成本 '+money(0)+' · 质量 ★★',cost:0,q:0.72},
+    {t:'【标准做法】正常投入',hint:'成本 '+money(Math.round(p.pay*0.04))+' · 质量 ★★★',cost:Math.round(p.pay*0.04),q:0.85},
+    {t:'【进击做法】给这一步加码',hint:'成本 '+money(Math.round(p.pay*0.1))+' · 质量 ★★★★ · 精力 -8',cost:Math.round(p.pay*0.1),q:0.95}];
+  let html='<div class="scene-who">工作台 · '+(p.label)+'</div><h3>第 '+(stepIdx+1)+' 步：'+esc(stage)+'</h3><div class="scene-body">每一阶段的投入，都会写进最终交付的质量和口碑里。（Step '+ (stepIdx+1) +'/'+p.stages.length+'）</div><div id="stage-opts"></div>';
+  const ov=openModal(html,{});
+  const box=ov.querySelector('#stage-opts');
+  opts.forEach(o=>{const b=document.createElement('button');b.className='choice';
+    b.innerHTML=esc(o.t)+'<span class="hint">'+esc(o.hint)+'</span>';
+    b.onclick=()=>{	if(o.cost&&!spend(o.cost,'交付投入（'+p.label+'）','工作'))return;
+      if(o.q>=0.9)applyFx([{k:'energy',v:-8}]);
+      p.quality+=(o.q-0.8);p.step++;save(true);closeModalTop();
+      if(p.step>=p.stages.length)settleGig();else stageChoiceModal();};
+    box.appendChild(b);});
+}
+function settleGig(){
+  const p=S.career.project;if(!p)return;
+  const skillB=(S.player.sk.plan||10)*0.4+(S.player.sk.eff||10)*0.3;
+  const quality=clamp(p.quality+p.pay/p.pay*0+skillB*0.003,0.6,1.25);
+  const pay=Math.round(p.pay*quality);
+  p.repo='done';
+  addCash(pay,'外包结算 · '+p.label,'收入');
+  S.career.rep+=Math.round(pay/600);S.career.project=null;
+  pushMem(null,'交付完成',fmtDate(S.cal)+'，「'+p.label+'」以 '+(((quality)>=1.05)?'零点补刀':(quality>=0.9?'超出预期':'及格'))+' 档位交付，入账 '+money(pay)+'.');
+  toast('发放酬劳 '+money(pay));S.player.mood=clamp(S.player.mood+6,0,100);save(true);render();
+}
+
+/* ---------- 手机 ---------- */
+const REPLY_ACTS={
+  busy:['在忙。晚点找你。','刚脱开身。怎么了？','这会儿走不开，十点后回你。'],
+  chat:['嗯，在。','然后呢？','正在听。','有点想你，随口一说。'],
+  meet:['这周末我腾出来。地方你挑。','可以。我去接你。'],
+  food:['吃了吗？别骗我。','刚出锅。你要不要来一口？'],
+  tired:['去休息。这是命令。','热水澡，热牛奶，十一点前睡。'],
+  night:['晚安。做个好梦。','睡吧。我这边收个尾就睡。'],
+  morning:['早。','早。记得吃早饭。'],
+  miss:['……这句我看了三遍。','巧了。我也在想。'],
+  love:['……我知道。我也是。','这句话，留着见面说。'],
+  sad:['谁？说来听听。','抱抱。'],
+  thanks:['跟我不用谢。','小意思。']
+};
+function detectIntent(text){
+  const rules=[[/想你|想我|见不到/,'miss'],[/在忙|开会|加班|工作/,'busy'],[/周末|有空|见面|约|见你/,'meet'],
+   [/吃|饭|饿|外卖|宵夜/,'food'],[/累|辛苦|委屈/,'tired'],[/雨|天气|降温|冷/,'weather'],[/晚安|睡了|困/,'night'],
+   [/早安|^早$|起床/,'morning'],[/难过|不开心|生气|烦/,'sad'],[/谢谢|感谢/,'thanks'],[/爱|喜欢/,'love']];
+  for(const r of rules){if(r[0].test(text))return r[1];}
+  return 'chat';
+}
+function genReplies(fid,text){
+  if(fid==='sys')return [];
+  const m=getCast(fid);if(!m)return [];
+  if(isAngry(fid))return [pick(['……','先不聊。','「已读。」他什么都没说。'])];
+  let key=detectIntent(text);
+  if(key==='chat'&&S.cal.slot===3)key='night';
+  if(key==='chat'&&S.cal.slot===0)key='morning';
+  if(key==='weather')key='chat';
+  const pool=(REPLY_ACTS[key]&&REPLY_ACTS[key].length?REPLY_ACTS[key]:REPLY_ACTS.chat).concat(mL(fid).chatReply);
+  const out=[pick(pool)];
+  if(Math.random()<0.30)out.push(pick(['你呢？','在干嘛？','吃饭了吗？','早点休息。']));
+  return out.slice(0,2);
+}
+function sendChat(fid,text){
+  text=String(text||'').trim().slice(0,120);if(!text)return;
+  if(fid!=='sys'){
+    const st=dayStamp(S.cal);
+    const cnt=(S.events['chat:'+fid]===st)?(S.events['chatc:'+fid]||0):0;
+    if(cnt>=2){toast('今天已经聊过两次了——感情也需要消化时间（明天再聊）',true);return;}
+    S.events['chat:'+fid]=st;S.events['chatc:'+fid]=cnt+1;
+  }
+  S.msgs.push({id:uid('msg'),from:fid,text,slot:S.cal.slot,date:fmtCal(S.cal),kind:'me',read:true});
+  if(fid!=='sys'){
+    const before=getRel(fid).aff;
+    affAdd(fid,4);
+    const gained=getRel(fid).aff-before;
+    toast(contactName(fid)+' 关系 +'+gained+'（当前 '+getRel(fid).aff+'）');
+    genReplies(fid,text).forEach(r=>pushMsg(fid,r,'chat'));
+  } else pushMsg('sys','收到。系统日志会记录你的重要节点。');
+  save(true);render();
+}
+function sendTopic(mid,i){
+  const c=getCast(mid);if(!c||!c.topics||!c.topics[i])return;
+  const stamp=S.events['ct:'+mid+':'+i]||0;
+  if(dayStamp(S.cal)-stamp<3){toast('这个话题最近聊过，明天再聊会有新回复',true);return;}
+  S.events['ct:'+mid+':'+i]=dayStamp(S.cal);
+  const t=c.topics[i];
+  S.msgs.push({id:uid('msg'),from:mid,text:t.q,slot:S.cal.slot,date:fmtCal(S.cal),kind:'me',read:true});
+  pushMsg(mid,t.a,'chat');affAdd(mid,2);
+  save(true);render();
+}
+function likeMoment(id){const m=S.moments.find(x=>x.id===id);if(m)m.liked=true;
+  if(m&&getCast(m.who))affAdd(m.who,1);save(true);render();}
+function commentMoment(id){const m=S.moments.find(x=>x.id===id);if(m){m.commented=true;
+  if(getCast(m.who)){affAdd(m.who,2);pushMsg(m.who,pick(['「你的回复置顶了。」','「被你看见了——今晚值了。」']));}}save(true);render();}
+
+/* ---------- 人际页 ---------- */
+function openInvite(mid){
+  const c=getCast(mid);if(!c)return;
+  showScene('gen_invite:'+mid);
+}
+function openGift(mid){
+  const c=getCast(mid);if(!c)return;
+  let html='<div class="scene-who">'+esc(c.name)+'</div><h3>送一份心意</h3><div class="scene-body">礼物不在贵，在于「你记得他」。不同档位的关系加成不同。</div><div id="gift-box"></div>';
+  const ov=openModal(html,{});
+  const box=ov.querySelector('#gift-box');
+  GAME_META.giftTiers.forEach((g,i)=>{
+    const b=document.createElement('button');b.className='choice';
+    b.innerHTML=esc(g.n)+'<span class="hint">'+money(g.p)+' · 关系 +'+g.a+'</span>';
+    b.onclick=()=>{ if(!spend(g.p,'送'+c.name+g.n,'人情'))return;
+      affAdd(mid,g.a);pushMsg(mid,mL(mid).gift);setRelationshipDate(mid);closeModalTop();processOrRender();};
+    box.appendChild(b);});
+  const back=document.createElement('button');back.className='btn sm ghost block';back.textContent='再想想';
+  back.onclick=()=>closeModalTop();box.appendChild(back);
+}
+function setRelationshipDate(mid){const r=getRel(mid);r.lastDate=fmtCal(S.cal);}
+function confirmStageGate(mid){
+  const c=getCast(mid),r=getRel(mid);
+  if(r.aff<60){toast('关系还没到位（需要心动 ≥60）',true);return;}
+  if(c.wife){
+    setStage(mid,'secret');affAdd(mid,5);
+    pushMem(mid,'关系的名字',fmtDate(S.cal)+'，你与'+c.name+'确认了这段关系：没有名分，但彼此诚实、自愿。');
+    pushMsg(mid,'「我知道这对你不公平。所以我不会催你，也不会骗你。」');
+  } else {
+    setStage(mid,'dating');affAdd(mid,5);
+    pushMem(mid,'在一起的这一天',fmtDate(S.cal)+'，你与'+c.name+'确立关系。');
+    pushMsg(mid,'「从今天开始，我把自己的名字排在你的事前面。」');
+  }
+  save(true);render();
+}
+function doBreakup(mid){
+  const r=getRel(mid);const c=getCast(mid);if(!c)return;
+  if(!confirm('确定和 '+c.name+' 分手吗？'))return;
+  r.stage='ex';r.cooldown=14;
+  pushMem(mid,'结束',fmtDate(S.cal)+'，你与'+c.name+'分开了。有些路的尽头，是为了走别的路。');
+  toast('已分手');save(true);render();
+}
+function tryReconcile(mid){
+  const r=getRel(mid);const c=getCast(mid);if(!c)return;
+  if(r.aff<40){toast('关系还没修复到能重新开始的程度（心动 ≥40）',true);return;}
+  setStage(mid,'friends');affAdd(mid,2);
+  pushMem(mid,'重新认识',fmtDate(S.cal)+'，你与'+c.name+'决定以朋友的身份重新认识。');
+  save(true);render();
+}
+
+/* ---------- 导航与渲染 ---------- */
+function nav(p,sub){if(!S)return;S.ui.page=p;S.ui.sub=sub||null;if(p==='thread')S.ui.thread=sub||null;save(true);render();}
+function fatal(e){
+  try{console.error(e);}catch(e2){}
+  if(window.__fatalShown)return;window.__fatalShown=true;
+  try{window.showFatalPanel(String((e&&e.message)||e));}catch(e2){alert('出了点小问题：'+String((e&&e.message)||e));}
+  window.__fatalShown=false;
+}
+function render(){
+  if(!S)return renderTitle();
+  try{
+    const path=S.ui.page;
+    const fn={home:pgHome,people:pgPeople,world:pgWorld,shop:pgShop,work:pgWork,more:pgMore,thread:pgThread,bag:pgBag}[path]||pgHome;
+    $('#view').innerHTML=fn();
+    try{renderNav();}catch(e2){}
+  }catch(e){fatal(e);}
+}
+function renderNav(){
+  let navEl=$('.bottom-nav');
+  if(!navEl){navEl=document.createElement('div');navEl.className='bottom-nav';document.body.appendChild(navEl);}
+  const un=S?unreadCount():0;
+  navEl.innerHTML=GAME_META.tabs.map(([k,i,l])=>{
+    return '<div class="nav-i '+(S.ui.page===k?'on':'')+'" onclick="nav(\''+k+'\')"><span class="ico">'+i+'</span>'+l+
+      (k==='home'&&un?'<span class="dot"></span>':'')+'</div>';}).join('');
+  navEl.style.display=(S&&['home','people','world','more'].includes(S.ui.page))?'' :'';
+}
+function datebarHTML(){return '<div class="datebar">📍 '+esc(GAME_META.city)+' · '+esc(fmtCal(S.cal))+' · '+esc(GAME_META.slotNames[S.cal.slot]||'')+'</div>';}
+function topbar(title,sub,back){
+  return datebarHTML()+'<div class="topbar">'+(back?'<div class="back" onclick="'+back+'">‹</div>':'')+
+   '<div class="title">'+esc(title)+'</div>'+(sub?'<div class="sub">'+esc(sub||'')+'</div>':'')+'</div>';
+}
+function stageTag(id){const r=getRel(id);return '<span class="tag">'+(STAGE_NAME[r.stage]||r.stage)+' · 心意 '+r.aff+'</span>';}
+const xp=(id)=>GAME_META.xFields[id]?GAME_META.xFields[id]:id;
+
+/* ---------- 首页 ---------- */
+function pgHome(){
+  const c=S.cal,lg=monthLedger(c.y,c.m);
+  const tips=[];
+  if(unreadCount())tips.push('你有 '+unreadCount()+' 条未读消息');
+  if(S.player.energy<30)tips.push('精力不足，喝杯茶或早点休息吧');
+  if(S.player.satiety<25)tips.push('饿着肚子，先去吃一口热的（城市 → 渡口早市与面馆）');
+  if(S.player.mood<30)tips.push('心情很低。去江堤走一圈，或找人聊聊');
+  if(S.player.physique<30)tips.push('体魄在报警。补觉与规律吃饭是基础功');
+  const met=Object.keys(S.rel).filter(id=>getCast(id)&&S.rel[id].stage!=='stranger').length;
+  return topbar(GAME_META.title,GAME_META.city+' · '+fmtCal(c))+
+  '<div class="card soft">'+
+  '<div class="row" style="justify-content:space-between;align-items:flex-start">'+
+  '<div><h2 style="color:var(--accent-hi)">'+fmtDate(c)+'</h2>'+
+  '<div style="font-size:12px;color:var(--ink-dim)">当前时段：'+GAME_META.slotNames[c.slot]+' · '+esc(S.weather||'')+((S.tidbit||'')!==''?' · '+esc(S.tidbit):'')+'</div></div>'+
+  '<div style="text-align:right">'+
+  '<div class="chip"><b>'+money(S.player.cash)+'</b></div><br>'+
+  '<div class="chip">精力 <b>'+S.player.energy+'/'+energyCap()+'</b></div><br>'+
+  '<div class="chip">心情 <b>'+S.player.mood+'</b></div><br>'+
+  '<div class="chip">饱食 <b>'+S.player.satiety+'</b> · 体魄 <b>'+S.player.physique+'</b></div>'+
+  '</div></div>'+
+  (S.player.mood<30?'<div class="notice bad">心情很低。安排一次放松、一次见面或一次散步吧——情绪会影响交付质量。</div>':'')+
+  ((S.player.satiety||0)<25?'<div class="notice bad">你很饿。饱食太低会持续掉心情和体魄——先去吃口热的。</div>':'')+
+  (tips.length?'<div class="notice warn">✍ '+tips.join('；')+'</div>':'')+
+  '<div class="row" style="margin-top:12px">'+
+  '<button class="btn gold" style="flex:1" onclick="doNextDay()">下一天 ⏭</button>'+
+  '<button class="btn" style="flex:1" onclick="doNextMonth()">下个月 ⇥</button></div>'+
+  '<div class="row" style="margin-top:8px">'+
+  '<button class="btn" style="flex:1" onclick="nav(\'thread\')">手机 📱</button>'+
+  '<button class="btn" style="flex:1" onclick="nav(\'work\')">工作台 💼</button>'+
+  '<button class="btn" style="flex:1" onclick="nav(\'bag\')">背包 🎒</button></div>'+
+  '<div class="kv" style="margin-top:10px"><span class="k">本月收支</span><span>入 '+(lg.inc>=0?'+':'')+lg.inc.toLocaleString()+' / 出 '+Math.abs(lg.exp).toLocaleString()+'</span></div>'+
+  '<div class="kv"><span class="k">认识的人</span><span>'+met+' / '+Object.keys(CAST).length+'</span></div>'+
+  '</div>'+
+  '<div class="sect">快捷 · 城市动作</div>'+
+  '<div class="row wrap">'+
+  '<button class="btn" onclick="placeAction(\'home\')">回出租屋 🏠</button>'+
+  '<button class="btn" onclick="placeAction(\'market\')">渡口面馆 🍜</button>'+
+  '<button class="btn" onclick="placeAction(\'park\')">江堤散步 🌳</button>'+
+  '</div>'+
+  '<div class="notice gold" style="margin-top:10px">新手提示：每天 4 个时段；「下一天」推进到次日早晨；认识人 → 「城市」各地点闲逛；关系 → 「人物」页。</div>';
+}
+function doNextDay(){nextDay();save(true);render();}
+function doNextMonth(){nextMonth();toast('时间来到了 '+fmtCal(S.cal));save(true);render();}
+
+/* ---------- 人物页 ---------- */
+function pgPeople(){
+  const all=Object.keys(CAST).concat(Object.keys(CAST2));
+  const rows=all.map(id=>{
+    const c=getCast(id),r=getRel(id);
+    const known=r.stage!=='stranger';
+    return '<div class="card soft" onclick="'+(known?'openThread(\''+id+'\')':'toastNotMet()')+'">'+
+    '<div style="display:flex;gap:10px;align-items:center">'+
+    '<div class="avatar" style="background:'+c.color+'">'+esc(c.name[0])+'</div>'+
+    '<div style="flex:1;min-width:0"><b style="color:var(--accent-hi)">'+esc(known?c.name:'？？？')+'</b>'+
+    '<div style="font-size:11.5px;color:var(--ink-dim)">'+esc(known?c.job:c.meetHint||'线索未知')+'</div></div>'+
+    (known?'<span class="tag">'+STAGE_NAME[r.stage]+' · '+r.aff+'</span>':'<span class="tag">未相识</span>')+
+    '</div></div>';}).join('');
+  return topbar('人物','认识越多，世界越满')+
+   '<div class="notice gold" style="font-size:12px">点开认识的人：可以聊天、邀约、送心意、推进关系；未相识的人按线索去城市对应地点偶遇。</div>'+rows+
+   (S.mems.length?'<div class="sect">记忆册（最近）</div><div class="card soft" style="font-size:12px">'+
+    S.mems.slice(0,3).map(m=>'<div class="kv"><span class="k">'+esc(m.date)+' · '+esc(m.who?contactName(m.who):'日常')+'</span><span>'+esc(m.title)+'</span></div>').join('')+
+    '<button class="btn sm ghost block" style="margin-top:6px" onclick="nav(\'more\')">在「更多」页查看全部记忆</button></div>':'');
+}
+function toastNotMet(){toast('还不认识 TA——按线索去对应地点转转',true);}
+
+/* ---------- 聊天线程 ---------- */
+function openThread(fid){
+  if(getCast(fid)&&(!S.rel[fid]||S.rel[fid].stage==='stranger')){toast('还不认识 TA——去对应地点遇见',true);return;}
+  nav('thread',fid);
+}
+function pgThread(){
+  const fid=S.ui.thread;
+  if(!fid||fid==='sys'){return pgPhone();}
+  const name=contactName(fid);
+  if(!getCast(fid))return pgPhone();
+  S.msgs.forEach(m=>{if(m.from===fid)m.read=true;});
+  const all=S.msgs.filter(m=>m.from===fid);
+  const rows=all.map(m=>'<div class="msg-row '+(m.kind==='me'?'me':'')+'">'+
+    (m.kind!=='me'?'<div class="avatar" style="width:34px;height:34px;font-size:14px;border-radius:10px;background:'+contactColor(fid)+'">'+esc(name[0])+'</div>':'')+
+    '<div class="bubble">'+esc(m.text)+'<span class="t">'+esc(m.date)+' '+esc(GAME_META.slotNames[m.slot]||'')+'</span></div></div>').join('');
+  const c=getCast(fid);
+  const topics=(c.topics||[]).map((t,i)=>{
+    const cooled=dayStamp(S.cal)-(S.events['ct:'+fid+':'+i]||0)<3;
+    return '<button class="choice"'+(cooled?' style="opacity:.55"':'')+' onclick="sendTopic(\''+fid+'\','+i+')">'+esc(t.q)+(cooled?'<span class="hint">（最近聊过，隔几天更有新回复）</span>':'')+'</button>';}).join('');
+  const r=getRel(fid);
+  return topbar(name,c.job,"nav('people')")+
+  '<div class="card soft msg-thread">'+rows+'</div>'+
+  '<div style="display:flex;gap:6px;margin:6px 0"><input type="text" id="chat-in" style="flex:1" placeholder="说点什么（会按对你有心动正向回复）"><button class="btn primary" onclick="chatIn(\''+fid+'\')">发送</button></div>'+
+  (topics?'<div class="sect">有心跳的话题</div>'+topics:'')+
+  '<div class="sect">关系</div><div class="card soft">'+
+  '<div class="kv"><span class="k">当前关系</span><span>'+esc(STAGE_NAME[r.stage])+' · 心意 '+r.aff+'</span></div>'+
+  '<div class="row wrap" style="margin-top:8px">'+
+  '<button class="btn gold" onclick="openInvite(\''+fid+'\')">邀约</button>'+
+  '<button class="btn" onclick="openGift(\''+fid+'\')">送心意 🎁</button>'+
+  (r.stage==='friends'?'<button class="btn primary" onclick="confirmStageGate(\''+fid+'\')">推进关系 ▶</button>':'')+
+  (['dating','secret'].includes(r.stage)?'<button class="btn danger" onclick="doBreakup(\''+fid+'\')">分手</button>':'')+
+  (r.stage==='ex'?'<button class="btn" onclick="tryReconcile(\''+fid+'\')">尝试复合</button>':'')+
+  '</div></div>';
+}
+function chatIn(fid){const el=$('#chat-in');if(el&&el.value)sendChat(fid,el.value);}
+
+/* ---------- 手机收件箱 ---------- */
+function pgPhone(){
+  const contacts={};
+  S.msgs.forEach(m=>{if(!contacts[m.from])contacts[m.from]=m;});
+  const metCasts=Object.keys(CAST).concat(Object.keys(CAST2)).filter(id=>S.rel[id]&&S.rel[id].stage!=='stranger');
+  metCasts.forEach(id=>{if(!contacts[id])contacts[id]={from:id,text:'（还没有消息，主动打个招呼吧）',date:'',read:true};});
+  contacts.sys=contacts.sys||{from:'sys',text:'系统日志与健康提示会出现在这里',date:'',read:true};
+  const rows=Object.values(contacts).map(m=>{
+    const name=contactName(m.from),col=contactColor(m.from);
+    const un=S.msgs.filter(x=>x.from===m.from&&!x.read).length;
+    return '<div class="card soft place" onclick="openThread(\''+(m.from==='sys'?'sys':m.from)+'\')">'+
+    '<div class="avatar" style="background:'+col+'">'+esc(name[0])+'</div>'+
+    '<div style="flex:1;min-width:0"><b style="color:var(--accent-hi)">'+esc(name)+'</b>'+
+    '<div style="font-size:12px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.text)+'</div></div>'+
+    (un?'<span class="tag" style="background:var(--accent);color:#fff;border:none">'+un+'</span>':'')+'</div>';}).join('');
+  return topbar('手机 · 消息',fmtCal(S.cal),"nav('home')")+(rows||'<div class="empty">还没有联系人</div>');
+}
+function pgBag(){
+  const rows=S.items.filter(i=>i.qty>0).map(i=>{
+    let desc='';Object.keys(GOODS).forEach(k=>{const g=GOODS[k].find(x=>x.id===i.id);if(g)desc=g.desc;});
+    return '<div class="kv"><span class="k">'+esc(i.name)+' ×'+i.qty+'</span><span class="row">'+(desc?'<span style="font-size:11px;color:var(--ink-dim)">'+esc(desc)+'</span>':'')+
+     '<button class="btn sm" onclick="useItem(\''+i.id+'\')">使用</button></span></div>';}).join('');
+  return topbar('背包','出门在外，包里要有底','nav(\'home\')')+
+   '<div class="card soft">'+(rows||'<div class="empty">包里空空如也。去商场/便利店补充些生活用品。</div>')+'</div>';
+}
+function useItem(id){
+  const it=S.items.find(x=>x.id===id&&x.qty>0);if(!it){toast('没有这件了',true);return;}
+  let use=null;Object.keys(GOODS).forEach(k=>{const g=GOODS[k].find(x=>x.id===id);if(g)use=g.use;});
+  if(!use){toast('这件物品没有即用效果',true);return;}
+  it.qty--;if(it.qty<=0)S.items.splice(S.items.indexOf(it),1);
+  const fx=[];
+  if(use.energy)fx.push({k:'energy',v:use.energy});
+  if(use.mood)fx.push({k:'mood',v:use.mood});
+  if(use.satiety)fx.push({k:'satiety',v:use.satiety});
+  if(use.phys)fx.push({k:'phys',v:use.phys});
+  if(use.skill){const p=String(use.skill).split(':');fx.push({k:'skill',id:p[0],v:+p[1]});}
+  applyFx(fx);toast('已使用：'+it.name);save(true);render();
+}
+
+/* ---------- 城市 ---------- */
+function pgWorld(){
+  const rows=Object.keys(PLACES).map(k=>{
+    const p=PLACES[k];
+    return '<div class="place" onclick="placeAction(\''+k+'\')">'+
+    '<div class="ico">'+esc(p.ico||'📍')+'</div>'+
+    '<div style="flex:1"><b>'+esc(p.name)+'</b><div style="font-size:11.5px;color:var(--ink-dim)">'+esc(p.desc||'')+'</div></div>'+
+    (p.cost?'<span class="tag">'+money(p.cost)+'</span>':'')+'</div>';}).join('');
+  return topbar('城市 · '+GAME_META.city,'人都在城市里，不在手机里')+
+   '<div class="notice gold" style="font-size:12px">每个地点对应一个人的线索：渡口面馆 → 颜叔；巡诊日·社区诊所 → 童晓；江堤 → 赵伯。</div>'+rows;
+}
+function pgShop(){
+  const cats=Object.keys(GOODS).map(k=>{
+    const names={food:'吃食',mall:'商场好物',health:'健康补给'};
+    return '<div class="sect">'+(names[k]||k)+'</div>'+GOODS[k].map(g=>
+      '<div class="place">'+
+      '<div style="flex:1"><b>'+esc(g.name)+'</b> <span class="tag">'+money(g.price)+'</span>'+
+      '<div style="font-size:11.5px;color:var(--ink-dim)">'+esc(g.desc||'')+'</div></div>'+
+      '<button class="btn sm gold" onclick="buyItem(\''+k+'\',\''+g.id+'\')">买</button></div>').join('');}).join('');
+  return topbar('购物','钱要花在刀刃上',"nav('world')")+cats;
+}
+function buyItem(k,id){
+  const g=GOODS[k].find(x=>x.id===id);if(!g)return;
+  if(!spend(g.price,g.name,'购物'))return;
+  addItem(id,1);toast('已购入：'+g.name);save(true);render();
+}
+
+/* ---------- 工作台 ---------- */
+function pgWork(){
+  const cj=S.career.job?CAREERS[S.career.job]:null;
+  let html=topbar('工作台','钱是日子的底气','nav(\'home\')');
+  html+='<div class="card soft"><div class="row" style="justify-content:space-between">'+
+   '<div><b>'+(cj?cj.levels[S.career.level]:'无业游民')+'</b>'+(cj?' · '+cj.name:'')+
+   '<div style="font-size:11.5px;color:var(--ink-dim)">工作日 '+S.career.workDays+' · 口碑 '+S.career.rep+'</div></div>'+
+   '<div class="chip">下一级 '+(cj?cj.salary[Math.min(S.career.level+1,cj.salary.length-1)]:'—')+'</div></div>';
+  if(!S.career.job){
+    html+='<div style="margin-top:8px"><button class="btn primary block" onclick="takeJob()">入职「'+CAREERS.office.name+'」</button></div>';
+  } else {
+    html+='<div class="row" style="margin-top:10px">'+
+     '<button class="btn gold" style="flex:1" onclick="goPlaceWork()">去上班（1 时段）</button>'+
+     '<button class="btn" onclick="quitJob()">辞掉</button></div>';
+  }
+  html+='<div style="font-size:11.5px;color:var(--ink-dim);margin-top:6px">'+(cj?esc(cj.workDesc):'找一份能上手的事做——体力和心情都要吃饭。')+'</div></div>';
+  html+='<div class="sect">可以接的单（按口碑解锁）</div>';
+  const line=(S.career.job&&GIGS[S.career.job])?S.career.job:'market';
+  html+=(GIGS[line]||[]).map(g=>'<div class="card soft"><b>'+esc(g.name)+'</b>'+
+   '<div style="font-size:11.5px;color:var(--ink-dim)">'+g.stages.join(' → ')+'</div>'+
+   '<div class="kv"><span class="k">酬劳</span><span>'+money(g.pay)+'</span></div>'+
+   '<div class="kv"><span class="k">解锁口碑</span><span>'+g.repNeed+'</span></div>'+
+   '<div style="margin-top:8px"><button class="btn '+(S.career.rep>=g.repNeed?'primary':'')+'" '+(S.career.rep<g.repNeed?'disabled':'')+' onclick="takeGig(\''+g.id+'\')">'+(S.career.rep>=g.repNeed?'接单':'未解锁')+'</button></div></div>').join('');
+  if(S.career.project){const p=S.career.project;
+    html+='<div class="sect">进行中的交付</div><div class="card soft" style="border-color:var(--accent)"><b>'+esc(p.label)+'</b>'+
+    '<div class="kv"><span class="k">阶段</span><span>'+p.step+' / '+p.stages.length+'</span></div>'+
+    '<div class="kv"><span class="k">累计质量</span><span>'+['粗糙','一般','良好','出色','惊艳'][clamp(Math.round((p.quality)*4),0,4)]+'</span></div>'+
+    '<button class="btn primary block" style="margin-top:8px" onclick="stageChoiceModal()">继续这一步（'+p.stages[p.step]+'）</button></div>';}
+  return html;
+}
+function takeJob(){
+  S.career.job='office';S.career.level=0;S.career.workDays=0;S.career.rep=S.career.rep||0;S.career.project=null;
+  toast('已入职：事务所 · 实习助理');pushMem(null,'入职',fmtDate(S.cal)+'，你在事务所领了第一张工牌。日子的刻度，从打卡声开始变得清晰。');
+  save(true);render();
+}
+function quitJob(){S.career.job=null;S.career.project=null;toast('已辞掉工作。休息一段时间也好');save(true);render();}
+function goPlaceWork(){placeAction('office');}
+
+/* ---------- 更多（存档/成就/结局/说明） ---------- */
+function pgMore(){
+  const ach='<div class="card soft" style="font-size:12px">'+ACHIEVEMENTS.map(a=>{
+    const got=(()=>{try{return a.test(S);}catch(e){return false;}})();
+    return '<div class="kv" style="'+(got?'':'opacity:.45')+'"><span class="k">'+(got?'🏆':'🔒')+' '+esc(a.n)+'</span><span>'+esc(a.d)+'</span></div>';}).join('')+'</div>';
+  const ends=S.endings.length?'<div class="card soft">'+S.endings.map(e=>'<div class="kv"><span class="k">🏆</span><span style="color:var(--accent-hi)">'+esc(e)+'</span></div>').join('')+'</div>':'';
+  return topbar('更多 · '+GAME_META.title,GAME_META.version)+
+  '<div class="sect">存档</div><div class="card soft" style="font-size:12px;line-height:2">'+
+  '<div>📲 <b>自动保存</b>：游玩中每一步都会自动记录，平时无需任何操作。</div>'+
+  '<div>📤 <b>导出存档</b>：换设备或备份时使用，会自动下载存档文件。</div>'+
+  '<div>📥 <b>读取存档</b>：选择之前导出的文件即可恢复进度（会覆盖当前）。</div>'+
+  '<div class="row" style="margin-top:10px">'+
+  '<button class="btn primary" style="flex:1" onclick="save(false)">手动存档</button>'+
+  '<button class="btn gold" style="flex:1" onclick="exportSave()">导出存档</button></div>'+
+  '<div class="row" style="margin-top:8px">'+
+  '<button class="btn" style="flex:1" onclick="importClick()">读取存档</button>'+
+  '<button class="btn danger" style="flex:1" onclick="wipeSave()">删除存档</button></div>'+
+  '<div style="font-size:11px;color:var(--ink-dim);margin-top:8px">⚠️ 读取会覆盖当前存档且不可恢复，请先导出。</div></div>'+
+  '<div class="sect">成就</div>'+ach+
+  (ends?'<div class="sect">已达成结局（'+S.endings.length+'）</div>'+ends:'')+
+  '<div class="sect">关于本作</div><div class="card soft" style="font-size:11.5px;color:var(--ink-dim);line-height:1.9">'+
+  '<div style="color:var(--accent-hi);font-size:12.5px;margin-bottom:4px">'+esc(GAME_META.tagline)+'</div>'+
+  GAME_META.disclaimer.map(d=>'<div>· '+esc(d)+'</div>').join('')+
+  '<div style="margin-top:6px;font-size:10px;opacity:.7">引擎版本 '+esc(GAME_META.version)+'</div></div>';
+}
+
+/* ---------- 成就 [SLOT 8：题材重写] ---------- */
+const ACHIEVEMENTS=[
+  {n:'初来北岸',d:'开始你在小城的新生活',test:S=>true},
+  {n:'一面之缘',d:'认识任何一位城里人',test:S=>Object.keys(S.rel).some(id=>getCast(id)&&S.rel[id].stage!=='stranger')},
+  {n:'攒下一点底',d:'存款突破 ¥80,000',test:S=>S.player.cash>=80000},
+  {n:'身体是本钱',d:'体魄达到 80',test:S=>S.player.physique>=80},
+  {n:'城里旧友',d:'与城里认识的人建立起工作外的熟络关系',test:S=>Object.keys(S.rel).filter(id=>getCast(id)).length>=2},
+  {n:'一周年纪念',d:'在这座城市待满一年',test:S=>cmpCal(S.cal,S.startCal)>=365}
+];
+
+/* ---------- 角色创建 ---------- */
+let draft={};
+function renderTitle(){
+  document.body.classList.remove('playing');
+  const hasSave=!!loadSave();
+  document.body.classList.add('title-show');
+  $('#view').innerHTML='<div class="title-hero">'+
+   '<div style="font-size:10px;letter-spacing:6px;color:var(--ink-dim)">SINGLE-FILE LIFE SIM</div>'+
+   '<h1>'+esc(GAME_META.title)+'</h1>'+
+   '<div style="font-size:13px;color:var(--ink-dim);letter-spacing:2px">'+esc(GAME_META.tagline)+'</div>'+
+   ((AGE_OK)?(
+    '<div style="margin:24px 0"><button class="btn primary" style="padding:12px 38px" onclick="startCreate()">开始新的生活</button></div>'+
+    (hasSave?'<button class="btn gold" style="padding:10px 30px" onclick="continueGame()">继续上次的生活</button>':'')
+   ):(
+    '<div class="card soft" style="margin-top:20px;text-align:left">'+
+    '<div style="color:var(--accent-hi);font-size:13px;margin-bottom:6px">【健康体验公告】</div>'+
+    GAME_META.disclaimer.map(d=>'<div style="font-size:11.5px;color:var(--ink-dim);line-height:1.9">'+esc(d)+'</div>').join('')+'</div>'+
+    '<div style="margin:20px 0"><button class="btn primary" style="padding:12px 38px" onclick="agreeAge()">我已满 18 周岁，进入作品</button></div>'+
+    '<div style="font-size:11px;color:var(--ink-dim)">未成年人请关闭本页面。</div>'
+   ))+
+   '<div class="card soft" style="text-align:left;font-size:11px;color:var(--ink-dim);line-height:1.9">'+
+   '<div style="color:var(--accent-hi);margin-bottom:4px">免责声明</div>'+
+   '本作为虚构作品，与现实人物、事件、团体无关；如体验过程中感到不适，请立即停止。</div>'+
+   '<div style="font-size:10px;color:var(--ink-dim);opacity:.6;margin-top:14px">引擎演示档 '+esc(GAME_META.version)+'</div>'+
+   '</div>';
+}
+function agreeAge(){AGE_OK=true;renderTitle();}
+function startCreate(){
+  draft={look:'清爽干净',style:'简单耐看',origin:'fresh',alloc:{beauty:0,physique:0,charm:0,wit:0}};
+  let html='<h3>你是什么样的人？</h3>'+
+   '<input type="text" id="c-name" maxlength="8" placeholder="怎么称呼你">'+
+   '<label class="f">年龄</label><div class="opt-row" id="c-age"></div>'+
+   '<label class="f">气质外观</label><div class="opt-row" id="c-look"></div>'+
+   '<label class="f">穿搭风格</label><div class="opt-row" id="c-style"></div>'+
+   '<label class="f">来这座城的身份（决定初始家底与状态）</label><div id="c-origin"></div>'+
+   '<label class="f">天赋加点（剩余 <b id="alloc-pts" style="color:var(--accent-hi)">6</b> 点 · 每点 +4）</label>'+
+   ['beauty','physique','charm','wit'].map(k=>'<div class="kv"><span class="k">'+({beauty:'气色·美貌',physique:'体魄',charm:'魅力',wit:'学识'}[k])+'</span>'+
+    '<span><button class="btn sm ghost" onclick="allocPt(\''+k+'\',-1)">−</button>'+
+    '<b id="alloc-'+k+'" style="display:inline-block;width:26px;text-align:center;color:var(--accent-hi)">0</b>'+
+    '<button class="btn sm ghost" onclick="allocPt(\''+k+'\',1)">＋</button></span></div>').join('')+
+   '<label class="f">偏好（对齐的对象，关系加成 +1）</label><div id="c-pref"></div>'+
+   '<div class="notice gold" style="margin-top:10px;font-size:11.5px">美貌影响气色、首印象与邀约运；体魄管理精力；魅力放大社交；学识抬升交付质量与收入。</div>'+
+   '<button class="btn primary block" style="margin-top:16px" onclick="createPlayer()">开始新生活</button>';
+  openModal(html,{});
+  const optsRow=(el,opts,def)=>{el.innerHTML=opts.map((o,i)=>'<div class="opt '+(o===def?'on':'')+'" data-v="'+o+'" onclick="pickOpt(this,\''+(el.id.replace('c-',''))+'\')">'+o+'</div>').join('');};
+  optsRow($('#c-age'),['22','26','30','34'],'26');
+  optsRow($('#c-look'),['清爽干净','明艳大方','温软邻家'],'清爽干净');
+  optsRow($('#c-style'),['简单耐看','张扬明快','慵懒随意'],'简单耐看');
+  $('#c-origin').innerHTML=Object.keys(ORIGINS).map(k=>'<button class="choice" onclick="pickOrigin(\''+k+'\')">'+ORIGINS[k].name+'<span class="hint">'+esc(ORIGINS[k].d)+' · 美貌'+ORIGINS[k].beauty+' 体魄'+ORIGINS[k].physique+' 魅力'+ORIGINS[k].charm+' 学识'+ORIGINS[k].wit+'</span></button>').join('');
+  draft.prefType=null;
+  $('#c-pref').innerHTML=Object.entries({steady:'要踏实的同学，安安稳稳',warm:'要情绪价值的，暖和贴心',spark:'要新鲜感的，冒险好玩',deep:'要成熟稳重的，靠得住'}).map(([k,v])=>'<button class="choice" onclick="pickPref(\''+k+'\')">'+v+'</button>').join('');
+}
+function pickOpt(el,key){[...el.parentElement.children].forEach(c=>c.classList.remove('on'));el.classList.add('on');draft[key]=el.dataset.v;}
+function pickPref(k){draft.prefType=k;toast('偏好已记下：'+k);}
+function pickOrigin(k){draft.origin=k;
+  document.querySelectorAll('#c-origin .choice').forEach(b=>{b.style.borderColor='var(--line)';b.style.background='var(--panel2)';});
+  event.currentTarget.style.borderColor='var(--accent)';}
+function allocTotal(){return Object.values(draft.alloc||{}).reduce((a,b)=>a+b,0);}
+function allocPt(k,d){
+  draft.alloc=draft.alloc||{beauty:0,physique:0,charm:0,wit:0};
+  if(d>0&&allocTotal()>=6){toast('天赋点用完了',true);return;}
+  if(d<0&&draft.alloc[k]<=0)return;
+  draft.alloc[k]+=d;
+  document.getElementById('alloc-'+k).textContent=draft.alloc[k];
+  document.getElementById('alloc-pts').textContent=6-allocTotal();
+}
+function createPlayer(){
+  const name=($('#c-name').value||'').trim();
+  if(!name){toast('请先给自己起个名',true);return;}
+  draft.age=draft.age||'26';draft.look=draft.look||'清爽干净';draft.style=draft.style||'简单耐看';
+  const o=ORIGINS[draft.origin||'fresh'];
+  const cashBase={fresh:12000,local:18000,steady:24000}[draft.origin||'fresh'];
+  S=newState({name,age:parseInt(draft.age),look:draft.look,style:draft.style,origin:draft.origin,cash:cashBase,
+    beauty:clamp(o.beauty+(draft.alloc.beauty*4),20,95),
+    physique:clamp(o.physique+(draft.alloc.physique*4),20,95),
+    charm:clamp(o.charm+(draft.alloc.charm*4),20,95),
+    wit:clamp(o.wit+(draft.alloc.wit*4),20,95),
+    prefType:draft.prefType});
+  pushMem(null,'初来乍到',fmtDate(S.cal)+'，'+name+'开始了在'+GAME_META.city+'的新生活。'+fmtCal(S.cal)+'的那顿晚饭，是这家渡口面馆的第一碗。');
+  closeModalAll();
+  S.pending.push('opening_welcome');
+  pushMsg('sys','【新手引导】\n1. 底部页签切换 日历/人物/城市/更多。\n2. 日历页「下一天」推进时间：每天 4 个时段。\n3. 城市 → 各地点闲逛会遇见人。\n4. 手机里查消息、回消息。\n5. 工作台：入职/接单由你决定。\n6. 记得吃饭——饱食、体魄、心情都是硬数值。');
+  SCENES['opening_welcome']=()=>({who:GAME_META.city,title:'抵达的第一天',
+    body:GAME_META.startCal.y+'年'+GAME_META.startCal.m+'月，'+name+'带着全部家当来了'+GAME_META.city+'。\n\n风从渡口吹过来，有点咸，也有点温柔。第一件事，先下楼吃碗热汤面吧。',
+    choices:[{t:'下二楼，去渡口面馆（遇见颜叔）',fx:[{k:'slot',n:1}],next:'yan_shu_meet'},
+             {t:'先在出租屋收拾行李安顿下来',hint:'心情 +3',fx:[{k:'mood',v:3},{k:'slot',n:1}]}]});
+  save(true);closeModalTop();render();processPending();
+}
+function continueGame(){S=loadSave();closeModalAll();render();}
+function bootStart(){
+  S=null;renderTitle();try{renderNav();}catch(e){}
+  document.title=GAME_META.title;
+}
+
+/* ---------- 致命错误安心面（引擎，勿删） ---------- */
+window.__fatalShown=false;
+function showFatalPanel(msgText){
+  try{
+    const el=document.createElement('div');el.className='modal';el.innerHTML='<div style="text-align:center">'+
+    '<div style="font-size:30px">🧯</div><b>出了点小问题</b>'+
+    '<div style="font-size:12px;color:var(--ink-dim);max-width:80%;text-align:left;line-height:1.7;margin-top:8px;word-break:break-all">'+esc(msgText)+'</div>'+
+    '<button class="btn primary" style="margin-top:12px" onclick="this.closest(\'.modal\').remove();window.__fatalShown=false">继续游玩（存档仍在）</button>'+
+    '<button class="btn sm ghost block" style="margin-top:8px" onclick="panicHome()">回到首页</button></div>';
+    document.body.appendChild(el);modalStack.push(el);
+  }catch(e2){}
+}
+window.addEventListener('error',function(e){
+  if(window.__fatalShown)return;window.__fatalShown=true;
+  try{showFatalPanel(String(e.message||e));}catch(e2){}
+});
+if(S!==null){bootStart();}
+else{bootStart();}
+</script>
+</body>
+</html>
