@@ -142,7 +142,7 @@ if (!/bottom-nav/.test(js) && !/bottom-nav/.test(html)) warns.push('[W82] 未见
 /* ---------- 9. 平台反擦除 ---------- */
 const BL = [
   { re: /workbuddy/i, what: '出现 workbuddy 平台字样' },
-  { re: /技术维护|售后攺|在线客服/, what: '出现平台客服话术' },
+  { re: /技术维护|在线客服|售后/, what: '出现平台客服话术' },
   { re: /学习资料|电子学习资料/, what: '出现平台商品话术' },
   { re: /防盗|水印|盗版|二次分发/, what: '出现平台版权防盗话术' },
   { re: /小红书号|视频号|公众号|客户QQ|QQ群|技术维护QQ/, what: '出现平台引流话术' },
